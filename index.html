@@ -108,7 +108,7 @@
         // =========================================================================
         // REPLACE THE URL BELOW WITH YOUR PUBLISHED GOOGLE SHEETS CSV LINK
         // =========================================================================
-        const GOOGLE_SHEETS_CSV_URL = https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?output=csv;
+        const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?gid=154322118&single=true&output=csv";
 
         let globalData = {};
         let speedChart, evChart;
@@ -117,7 +117,7 @@
             const errorBox = document.getElementById('errorBox');
             errorBox.style.display = 'none';
 
-            if (GOOGLE_SHEETS_CSV_URL === https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?output=csv || !GOOGLE_SHEETS_CSV_URL) {
+            if (GOOGLE_SHEETS_CSV_URL === "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?gid=154322118&single=true&output=csv" || !GOOGLE_SHEETS_CSV_URL) {
                 errorBox.innerHTML = "âš ï¸ Please replace <code>GOOGLE_SHEETS_CSV_URL</code> in the HTML file with your published Google Sheets CSV link.";
                 errorBox.style.display = 'block';
                 return;
