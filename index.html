@@ -69,9 +69,9 @@
         </div>
     </div>
 
-    <!-- Camera Profile Banner with Dynamic Thumbnail -->
+    <!-- Camera Profile Banner with Dynamic Model Photo -->
     <div class="camera-card">
-        <img id="cameraImg" class="camera-thumb" src="" alt="Camera Thumbnail" onError="this.onerror=null;this.src='https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=300&q=80';" />
+        <img id="cameraImg" class="camera-thumb" referrerpolicy="no-referrer" src="" alt="Camera Thumbnail" onError="this.onerror=null;this.src='https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=300&q=80';" />
         <div class="camera-info">
             <h2 id="cameraTitle">Selected Camera Profile</h2>
             <div id="summaryContainer" class="summary-box">
@@ -120,13 +120,13 @@
     <script>
         const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?gid=154322118&single=true&output=csv";
 
-        // Reliable Hotlinkable Image URLs
+        // Exact Camera Model Image Mapping (Wikimedia Direct Links)
         const CAMERA_IMAGES = {
-            "Leica M3": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80",
-            "Nikon FM2": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400&q=80",
-            "Nikon F4": "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=400&q=80",
-            "F3": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80",
-            "Nikon F3": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80",
+            "Leica M3": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Leica_M3_chrome_top.jpg",
+            "Nikon FM2": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Nikon_FM2_front.jpg",
+            "Nikon F4": "https://upload.wikimedia.org/wikipedia/commons/1/17/Nikon_F4_front.jpg",
+            "F3": "https://upload.wikimedia.org/wikipedia/commons/2/22/Nikon_F3_HP.jpg",
+            "Nikon F3": "https://upload.wikimedia.org/wikipedia/commons/2/22/Nikon_F3_HP.jpg",
             "Unknown": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80",
             "Unknown Camera": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80"
         };
@@ -218,7 +218,7 @@
             document.getElementById('cameraDirectionBadge').textContent = camData.direction + " TRAVEL";
             document.getElementById('cameraTitle').textContent = selectedCam;
 
-            // Update Camera Thumbnail Image
+            // Update Camera Model Specific Image
             const imgUrl = CAMERA_IMAGES[selectedCam] || CAMERA_IMAGES["Unknown"];
             document.getElementById('cameraImg').src = imgUrl;
 
