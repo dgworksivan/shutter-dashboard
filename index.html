@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Shutter Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-orange: #fb923c;
+            --accent-green: #4ade80;
+            --accent-red: #f87171;
+            --border: #334155;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); padding: 24px; min-height: 100vh; }
+        .header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+        .header h1 { font-size: 1.5rem; color: var(--accent-blue); }
+        .controls { display: flex; gap: 16px; margin-bottom: 24px; background: var(--panel-bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border); }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 0.85rem; color: var(--text-sub); text-transform: uppercase; font-weight: 600; }
+        select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; outline: none; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 24px; }
+        .card { background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
+        .card h2 { font-size: 1.1rem; margin-bottom: 16px; color: var(--text-sub); display: flex; justify-content: space-between; }
+        .badge { background: #0369a1; color: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; }
+        th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--border); }
+        th { background-color: var(--bg-dark); color: var(--text-sub); text-transform: uppercase; font-weight: 600; font-size: 0.75rem; }
+        th:first-child, td:first-child { text-align: left; }
+        .status-pass { color: var(--accent-green); font-weight: 600; }
+        .status-warn { color: var(--accent-orange); font-weight: 600; }
+        .status-fail { color: var(--accent-red); font-weight: 600; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📷 Shutter Tester Web Dashboard</h1>
+        <div id="cameraDirectionBadge" class="badge">Horizontal Travel</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="cameraSelect">Select Camera Model</label>
+            <select id="cameraSelect" onchange="updateDashboard()">
+                <!-- Populated via JS -->
+            </select>
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- Chart 1: Curtain Speed Consistency -->
+        <div class="card">
+            <h2>Curtain Speed Consistency <span>(Travel Time in ms)</span></h2>
+            <div class="chart-container">
+                <canvas id="curtainSpeedChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart 2: Curtain Difference EV -->
+        <div class="card">
+            <h2>Exposure Uniformity <span>(Curtain Diff EV)</span></h2>
+            <div class="chart-container">
+                <canvas id="evDiffChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="card">
+        <h2>Detailed Diagnostics Table</h2>
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>Setting</th>
+                    <th>Pos 1 (ms)</th>
+                    <th>Pos 2 (ms)</th>
+                    <th>Pos 3 (ms)</th>
+                    <th>Curtain 1 (ms)</th>
+                    <th>Curtain 2 (ms)</th>
+                    <th>EV Diff</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Populated via JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const rawData = {"Nikon S3": {"direction": "HORIZONTAL", "readings": [{"shutter_setting": "1/15", "left_top_ms": 50.95, "mid_ms": 52.5, "right_bot_ms": 53.57, "curtain1_ms": 18.385, "curtain2_ms": 15.429, "curtain_diff_ev": -0.072}, {"shutter_setting": "1/30", "left_top_ms": 27.41, "mid_ms": 28.97, "right_bot_ms": 29.8, "curtain1_ms": 19.175, "curtain2_ms": 16.483, "curtain_diff_ev": -0.121}, {"shutter_setting": "1/60", "left_top_ms": 14.88, "mid_ms": 16.59, "right_bot_ms": 18.53, "curtain1_ms": 18.961, "curtain2_ms": 14.832, "curtain_diff_ev": -0.316}, {"shutter_setting": "1/125", "left_top_ms": 5.8, "mid_ms": 6.31, "right_bot_ms": 8.0, "curtain1_ms": 15.82, "curtain2_ms": 13.345, "curtain_diff_ev": -0.463}, {"shutter_setting": "1/250", "left_top_ms": 1.86, "mid_ms": 2.18, "right_bot_ms": 2.9, "curtain1_ms": 14.285, "curtain2_ms": 13.13, "curtain_diff_ev": -0.643}, {"shutter_setting": "1/500", "left_top_ms": 0.47, "mid_ms": 0.57, "right_bot_ms": 0.97, "curtain1_ms": 14.109, "curtain2_ms": 13.576, "curtain_diff_ev": -1.043}, {"shutter_setting": "1/1000", "left_top_ms": 0.22, "mid_ms": 0.27, "right_bot_ms": 0.52, "curtain1_ms": 14.019, "curtain2_ms": 13.711, "curtain_diff_ev": -1.249}]}, "Leica M3": {"direction": "HORIZONTAL", "readings": [{"shutter_setting": "1/25", "left_top_ms": 55.08, "mid_ms": 53.17, "right_bot_ms": 50.37, "curtain1_ms": 14.792, "curtain2_ms": 20.209, "curtain_diff_ev": -1.249}, {"shutter_setting": "1/50", "left_top_ms": 22.03, "mid_ms": 20.62, "right_bot_ms": 19.01, "curtain1_ms": 14.904, "curtain2_ms": 18.395, "curtain_diff_ev": -1.249}, {"shutter_setting": "1/100", "left_top_ms": 9.38, "mid_ms": 8.59, "right_bot_ms": 8.57, "curtain1_ms": 15.694, "curtain2_ms": 16.66, "curtain_diff_ev": -1.249}, {"shutter_setting": "1/250", "left_top_ms": 3.94, "mid_ms": 3.81, "right_bot_ms": 4.36, "curtain1_ms": 16.694, "curtain2_ms": 16.252, "curtain_diff_ev": -1.249}, {"shutter_setting": "1/500", "left_top_ms": 2.14, "mid_ms": 2.03, "right_bot_ms": 2.39, "curtain1_ms": 16.478, "curtain2_ms": 16.232, "curtain_diff_ev": -1.249}, {"shutter_setting": "1/1000", "left_top_ms": 1.7, "mid_ms": 1.52, "right_bot_ms": 1.85, "curtain1_ms": 16.414, "curtain2_ms": 16.289, "curtain_diff_ev": -1.249}]}, "Nikon FM2": {"direction": "VERTICAL", "readings": [{"shutter_setting": "1s", "left_top_ms": 973.16, "mid_ms": 973.2, "right_bot_ms": 973.19, "curtain1_ms": 3.409, "curtain2_ms": 3.411, "curtain_diff_ev": 0.0}, {"shutter_setting": "2s", "left_top_ms": 542.76, "mid_ms": 542.79, "right_bot_ms": 542.79, "curtain1_ms": 3.426, "curtain2_ms": 3.424, "curtain_diff_ev": 0.0}, {"shutter_setting": "4s", "left_top_ms": 282.4, "mid_ms": 282.44, "right_bot_ms": 282.44, "curtain1_ms": 3.418, "curtain2_ms": 3.422, "curtain_diff_ev": 0.0}, {"shutter_setting": "8s", "left_top_ms": 122.9, "mid_ms": 122.93, "right_bot_ms": 122.92, "curtain1_ms": 3.43, "curtain2_ms": 3.421, "curtain_diff_ev": 0.0}, {"shutter_setting": "1/15", "left_top_ms": 63.67, "mid_ms": 63.69, "right_bot_ms": 63.69, "curtain1_ms": 3.431, "curtain2_ms": 3.425, "curtain_diff_ev": -0.001}, {"shutter_setting": "1/30", "left_top_ms": 35.1, "mid_ms": 35.12, "right_bot_ms": 35.12, "curtain1_ms": 3.431, "curtain2_ms": 3.421, "curtain_diff_ev": -0.001}, {"shutter_setting": "1/60", "left_top_ms": 18.62, "mid_ms": 18.65, "right_bot_ms": 18.65, "curtain1_ms": 3.428, "curtain2_ms": 3.433, "curtain_diff_ev": -0.003}, {"shutter_setting": "1/125", "left_top_ms": 7.23, "mid_ms": 7.26, "right_bot_ms": 7.25, "curtain1_ms": 3.432, "curtain2_ms": 3.42, "curtain_diff_ev": -0.004}, {"shutter_setting": "1/250", "left_top_ms": 4.69, "mid_ms": 4.73, "right_bot_ms": 4.73, "curtain1_ms": 3.416, "curtain2_ms": 3.431, "curtain_diff_ev": -0.013}, {"shutter_setting": "1/500", "left_top_ms": 1.67, "mid_ms": 1.71, "right_bot_ms": 1.7, "curtain1_ms": 3.436, "curtain2_ms": 3.433, "curtain_diff_ev": -0.025}, {"shutter_setting": "1/1000", "left_top_ms": 0.8, "mid_ms": 0.83, "right_bot_ms": 0.82, "curtain1_ms": 3.439, "curtain2_ms": 3.436, "curtain_diff_ev": -0.05}, {"shutter_setting": "1/2000", "left_top_ms": 0.4, "mid_ms": 0.43, "right_bot_ms": 0.41, "curtain1_ms": 3.45, "curtain2_ms": 3.428, "curtain_diff_ev": -0.047}, {"shutter_setting": "1/4000", "left_top_ms": 0.19, "mid_ms": 0.23, "right_bot_ms": 0.21, "curtain1_ms": 3.453, "curtain2_ms": 3.442, "curtain_diff_ev": -0.154}]}, "Nikon F4": {"direction": "VERTICAL", "readings": [{"shutter_setting": "4s", "left_top_ms": 3999.24, "mid_ms": 3999.24, "right_bot_ms": 3999.22, "curtain1_ms": 2.862, "curtain2_ms": 2.927, "curtain_diff_ev": 0.0}, {"shutter_setting": "2s", "left_top_ms": 1999.65, "mid_ms": 1999.64, "right_bot_ms": 1999.62, "curtain1_ms": 2.864, "curtain2_ms": 2.934, "curtain_diff_ev": 0.0}, {"shutter_setting": "1s", "left_top_ms": 999.85, "mid_ms": 999.85, "right_bot_ms": 999.83, "curtain1_ms": 2.871, "curtain2_ms": 2.937, "curtain_diff_ev": 0.0}, {"shutter_setting": "2s", "left_top_ms": 499.92, "mid_ms": 499.92, "right_bot_ms": 499.9, "curtain1_ms": 2.87, "curtain2_ms": 2.934, "curtain_diff_ev": 0.0}, {"shutter_setting": "4s", "left_top_ms": 249.97, "mid_ms": 249.97, "right_bot_ms": 249.95, "curtain1_ms": 2.871, "curtain2_ms": 2.932, "curtain_diff_ev": 0.0}, {"shutter_setting": "8s", "left_top_ms": 125.0, "mid_ms": 124.99, "right_bot_ms": 124.97, "curtain1_ms": 2.868, "curtain2_ms": 2.931, "curtain_diff_ev": 0.0}, {"shutter_setting": "1/15", "left_top_ms": 62.5, "mid_ms": 62.5, "right_bot_ms": 62.48, "curtain1_ms": 2.875, "curtain2_ms": 2.933, "curtain_diff_ev": 0.0}, {"shutter_setting": "1/30", "left_top_ms": 31.26, "mid_ms": 31.26, "right_bot_ms": 31.25, "curtain1_ms": 2.875, "curtain2_ms": 2.931, "curtain_diff_ev": 0.001}, {"shutter_setting": "1/60", "left_top_ms": 15.65, "mid_ms": 15.65, "right_bot_ms": 15.63, "curtain1_ms": 2.871, "curtain2_ms": 2.932, "curtain_diff_ev": 0.002}, {"shutter_setting": "1/125", "left_top_ms": 7.82, "mid_ms": 7.82, "right_bot_ms": 7.81, "curtain1_ms": 2.864, "curtain2_ms": 2.914, "curtain_diff_ev": 0.002}, {"shutter_setting": "1/250", "left_top_ms": 4.2, "mid_ms": 4.19, "right_bot_ms": 4.18, "curtain1_ms": 2.858, "curtain2_ms": 2.92, "curtain_diff_ev": 0.007}, {"shutter_setting": "1/500", "left_top_ms": 1.96, "mid_ms": 1.96, "right_bot_ms": 1.94, "curtain1_ms": 2.866, "curtain2_ms": 2.926, "curtain_diff_ev": 0.014}, {"shutter_setting": "1/1000", "left_top_ms": 0.98, "mid_ms": 0.98, "right_bot_ms": 0.96, "curtain1_ms": 2.866, "curtain2_ms": 2.928, "curtain_diff_ev": 0.031}, {"shutter_setting": "1/2000", "left_top_ms": 0.51, "mid_ms": 0.5, "right_bot_ms": 0.49, "curtain1_ms": 2.866, "curtain2_ms": 2.927, "curtain_diff_ev": 0.058}, {"shutter_setting": "1/4000", "left_top_ms": 0.26, "mid_ms": 0.25, "right_bot_ms": 0.24, "curtain1_ms": 2.868, "curtain2_ms": 2.928, "curtain_diff_ev": 0.118}, {"shutter_setting": "1/8000", "left_top_ms": 0.12, "mid_ms": 0.12, "right_bot_ms": 0.1, "curtain1_ms": 2.879, "curtain2_ms": 2.941, "curtain_diff_ev": 0.269}]}, "F3": {"direction": "HORIZONTAL", "readings": [{"shutter_setting": "8s", "left_top_ms": 7999.56, "mid_ms": 7999.78, "right_bot_ms": 8000.01, "curtain1_ms": 11.783, "curtain2_ms": 11.304, "curtain_diff_ev": 0.0}, {"shutter_setting": "4s", "left_top_ms": 3999.62, "mid_ms": 3999.83, "right_bot_ms": 4000.05, "curtain1_ms": 11.884, "curtain2_ms": 11.435, "curtain_diff_ev": 0.0}, {"shutter_setting": "2s", "left_top_ms": 1999.65, "mid_ms": 1999.88, "right_bot_ms": 2000.09, "curtain1_ms": 11.92, "curtain2_ms": 11.449, "curtain_diff_ev": 0.0}, {"shutter_setting": "1s", "left_top_ms": 999.72, "mid_ms": 999.92, "right_bot_ms": 1000.15, "curtain1_ms": 12.069, "curtain2_ms": 11.608, "curtain_diff_ev": -0.001}, {"shutter_setting": "2s", "left_top_ms": 499.58, "mid_ms": 499.8, "right_bot_ms": 500.05, "curtain1_ms": 11.83, "curtain2_ms": 11.33, "curtain_diff_ev": -0.001}, {"shutter_setting": "4s", "left_top_ms": 249.63, "mid_ms": 249.87, "right_bot_ms": 250.1, "curtain1_ms": 11.929, "curtain2_ms": 11.43, "curtain_diff_ev": -0.003}, {"shutter_setting": "8s", "left_top_ms": 124.62, "mid_ms": 124.85, "right_bot_ms": 125.09, "curtain1_ms": 12.017, "curtain2_ms": 11.521, "curtain_diff_ev": -0.005}, {"shutter_setting": "1/15", "left_top_ms": 62.15, "mid_ms": 62.39, "right_bot_ms": 62.64, "curtain1_ms": 11.962, "curtain2_ms": 11.443, "curtain_diff_ev": -0.011}, {"shutter_setting": "1/30", "left_top_ms": 30.87, "mid_ms": 31.1, "right_bot_ms": 31.35, "curtain1_ms": 11.898, "curtain2_ms": 11.385, "curtain_diff_ev": -0.022}]}};
+
+        let speedChart, evChart;
+
+        function init() {
+            const select = document.getElementById('cameraSelect');
+            Object.keys(rawData).forEach(cam => {
+                const opt = document.createElement('option');
+                opt.value = cam;
+                opt.textContent = cam;
+                select.appendChild(opt);
+            });
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            const selectedCam = document.getElementById('cameraSelect').value;
+            const camData = rawData[selectedCam];
+            
+            document.getElementById('cameraDirectionBadge').textContent = camData.direction + " TRAVEL";
+
+            const labels = camData.readings.map(r => r.shutter_setting);
+            const c1Ms = camData.readings.map(r => r.curtain1_ms);
+            const c2Ms = camData.readings.map(r => r.curtain2_ms);
+            const evDiff = camData.readings.map(r => r.curtain_diff_ev);
+
+            // Update Chart 1: Curtain Speeds
+            if (speedChart) speedChart.destroy();
+            speedChart = new Chart(document.getElementById('curtainSpeedChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Curtain 1 (ms)', data: c1Ms, borderColor: '#38bdf8', backgroundColor: '#38bdf8', tension: 0.2 },
+                        { label: 'Curtain 2 (ms)', data: c2Ms, borderColor: '#fb923c', backgroundColor: '#fb923c', tension: 0.2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#f8fafc' } } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'Time (ms)', color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            // Update Chart 2: EV Diff
+            if (evChart) evChart.destroy();
+            evChart = new Chart(document.getElementById('evDiffChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Curtain Diff (EV)', data: evDiff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.2 },
+                        { label: 'Upper Limit (+0.33 EV)', data: Array(labels.length).fill(0.33), borderColor: '#f87171', borderDash: [5, 5], pointRadius: 0 },
+                        { label: 'Lower Limit (-0.33 EV)', data: Array(labels.length).fill(-0.33), borderColor: '#f87171', borderDash: [5, 5], pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#f8fafc' } } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'EV Deviation', color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            // Update Data Table
+            const tbody = document.querySelector('#dataTable tbody');
+            tbody.innerHTML = '';
+            camData.readings.forEach(r => {
+                const tr = document.createElement('tr');
+                const absEv = Math.abs(r.curtain_diff_ev);
+                let statusClass = 'status-pass';
+                let statusText = 'PASS';
+
+                if (absEv > 0.66) { statusClass = 'status-fail'; statusText = 'ACTION REQ'; }
+                else if (absEv > 0.33) { statusClass = 'status-warn'; statusText = 'MARGINAL'; }
+
+                tr.innerHTML = `
+                    <td><strong>${r.shutter_setting}</strong></td>
+                    <td>${r.left_top_ms}</td>
+                    <td>${r.mid_ms}</td>
+                    <td>${r.right_bot_ms}</td>
+                    <td>${r.curtain1_ms}</td>
+                    <td>${r.curtain2_ms}</td>
+                    <td>${r.curtain_diff_ev.toFixed(3)}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
