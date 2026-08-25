@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera Shutter Analytics Dashboard</title>
-    <!-- Chart.js for rendering graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- PapaParse for parsing Google Sheets CSV data -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root {
@@ -29,7 +27,7 @@
         label { font-size: 0.85rem; color: var(--text-sub); text-transform: uppercase; font-weight: 600; }
         select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; outline: none; cursor: pointer; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 24px; }
-        .card { background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
+        .card { background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); margin-bottom: 24px; }
         .card h2 { font-size: 1.1rem; margin-bottom: 16px; color: var(--text-sub); display: flex; justify-content: space-between; }
         .badge { background: #0369a1; color: #e0f2fe; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
         .chart-container { position: relative; height: 300px; width: 100%; }
@@ -40,7 +38,9 @@
         .status-pass { color: var(--accent-green); font-weight: 600; }
         .status-warn { color: var(--accent-orange); font-weight: 600; }
         .status-fail { color: var(--accent-red); font-weight: 600; }
-        .error-msg { background: #7f1d1d; color: #fecaca; padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 0.9rem; }
+        .summary-box { background: var(--bg-dark); padding: 16px; border-radius: 8px; border-left: 4px solid var(--accent-blue); margin-bottom: 16px; }
+        .summary-box h3 { font-size: 1rem; color: var(--accent-blue); margin-bottom: 8px; }
+        .summary-box ul { list-style-type: square; padding-left: 20px; color: var(--text-main); font-size: 0.9rem; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -49,8 +49,6 @@
         <h1>📷 Live Shutter Tester Web Dashboard</h1>
         <div id="cameraDirectionBadge" class="badge">Awaiting Data</div>
     </div>
-
-    <div id="errorBox" class="error-msg" style="display: none;"></div>
 
     <div class="controls">
         <div class="control-group">
@@ -61,6 +59,14 @@
         </div>
         <div style="margin-left: auto;">
             <button onclick="fetchLiveData()" style="background: var(--accent-blue); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">↻ Refresh Data</button>
+        </div>
+    </div>
+
+    <!-- Defect & Accuracy Summary Section -->
+    <div class="card">
+        <h2>Automated Shutter Defect & Accuracy Summary</h2>
+        <div id="summaryContainer" class="summary-box">
+            <!-- Populated via JS -->
         </div>
     </div>
 
@@ -102,16 +108,12 @@
     </div>
 
     <script>
-        // Connected directly to your published Google Sheets CSV link
         const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?gid=154322118&single=true&output=csv";
 
         let globalData = {};
         let speedChart, evChart;
 
         async function fetchLiveData() {
-            const errorBox = document.getElementById('errorBox');
-            errorBox.style.display = 'none';
-
             try {
                 const response = await fetch(GOOGLE_SHEETS_CSV_URL);
                 const csvText = await response.text();
@@ -126,8 +128,7 @@
                     }
                 });
             } catch (err) {
-                errorBox.innerHTML = "❌ Failed to fetch Google Sheets CSV: " + err.message;
-                errorBox.style.display = 'block';
+                console.error("Fetch Error: ", err);
             }
         }
 
@@ -194,6 +195,9 @@
 
             const camData = globalData[selectedCam];
             document.getElementById('cameraDirectionBadge').textContent = camData.direction + " TRAVEL";
+
+            // Generate Automated Summary
+            generateDefectSummary(camData);
 
             const labels = camData.readings.map(r => r.shutter_setting);
             const c1Ms = camData.readings.map(r => r.curtain1_ms);
@@ -266,6 +270,40 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function generateDefectSummary(camData) {
+            const container = document.getElementById('summaryContainer');
+            let invalidSpeeds = [];
+            let curtainAnomalies = [];
+            let evTrend = "";
+
+            camData.readings.forEach(r => {
+                const absEv = Math.abs(r.curtain_diff_ev);
+                if (absEv > 0.33) {
+                    invalidSpeeds.push(`${r.shutter_setting} (${r.curtain_diff_ev.toFixed(2)} EV)`);
+                }
+                const curtainDiff = Math.abs(r.curtain1_ms - r.curtain2_ms);
+                if (curtainDiff > 2.0) {
+                    curtainAnomalies.push(`${r.shutter_setting} (C1: ${r.curtain1_ms}ms vs C2: ${r.curtain2_ms}ms)`);
+                }
+            });
+
+            if (invalidSpeeds.length === 0) {
+                evTrend = "Exhibits excellent exposure uniformity across all shutter speeds.";
+            } else if (invalidSpeeds.length < 3) {
+                evTrend = "Minor exposure deviations at specific high speeds; general operation remains stable.";
+            } else {
+                evTrend = "Severe systemic EV exposure deviation across multiple settings; requires recalibration.";
+            }
+
+            let html = `<h3>Health Status Analysis</h3><ul>`;
+            html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
+            html += `<li><strong>Curtain Speed Abnormalities:</strong> ${curtainAnomalies.length > 0 ? curtainAnomalies.join(', ') : 'None (Curtain travel speeds balanced)'}</li>`;
+            html += `<li><strong>Overall Trend:</strong> ${evTrend}</li>`;
+            html += `</ul>`;
+
+            container.innerHTML = html;
         }
 
         window.onload = fetchLiveData;
