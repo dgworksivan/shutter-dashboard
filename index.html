@@ -26,13 +26,6 @@
         .control-group { display: flex; flex-direction: column; gap: 6px; }
         label { font-size: 0.85rem; color: var(--text-sub); text-transform: uppercase; font-weight: 600; }
         select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; outline: none; cursor: pointer; }
-        
-        /* Camera Profile Header Card with Thumbnail */
-        .camera-card { display: flex; gap: 20px; align-items: center; background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); margin-bottom: 24px; }
-        .camera-thumb { width: 130px; height: 95px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background-color: var(--bg-dark); flex-shrink: 0; }
-        .camera-info { flex-grow: 1; }
-        .camera-info h2 { font-size: 1.3rem; color: var(--text-main); margin-bottom: 4px; }
-        
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 24px; }
         .card { background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); margin-bottom: 24px; }
         .card h2 { font-size: 1.1rem; margin-bottom: 16px; color: var(--text-sub); display: flex; justify-content: space-between; }
@@ -45,9 +38,9 @@
         .status-pass { color: var(--accent-green); font-weight: 600; }
         .status-warn { color: var(--accent-orange); font-weight: 600; }
         .status-fail { color: var(--accent-red); font-weight: 600; }
-        .summary-box { background: var(--bg-dark); padding: 16px; border-radius: 8px; border-left: 4px solid var(--accent-blue); margin-top: 12px; }
-        .summary-box h3 { font-size: 0.95rem; color: var(--accent-blue); margin-bottom: 8px; }
-        .summary-box ul { list-style-type: square; padding-left: 20px; color: var(--text-main); font-size: 0.85rem; line-height: 1.5; }
+        .summary-box { background: var(--bg-dark); padding: 16px; border-radius: 8px; border-left: 4px solid var(--accent-blue); margin-bottom: 16px; }
+        .summary-box h3 { font-size: 1rem; color: var(--accent-blue); margin-bottom: 8px; }
+        .summary-box ul { list-style-type: square; padding-left: 20px; color: var(--text-main); font-size: 0.9rem; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -69,14 +62,11 @@
         </div>
     </div>
 
-    <!-- Camera Profile Banner with Dynamic Model Photo -->
-    <div class="camera-card">
-        <img id="cameraImg" class="camera-thumb" referrerpolicy="no-referrer" src="" alt="Camera Thumbnail" onError="this.onerror=null;this.src='https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=300&q=80';" />
-        <div class="camera-info">
-            <h2 id="cameraTitle">Selected Camera Profile</h2>
-            <div id="summaryContainer" class="summary-box">
-                <!-- Summary inserted via JS -->
-            </div>
+    <!-- Defect & Accuracy Summary Section -->
+    <div class="card">
+        <h2>Automated Shutter Defect & Accuracy Summary</h2>
+        <div id="summaryContainer" class="summary-box">
+            <!-- Populated via JS -->
         </div>
     </div>
 
@@ -119,17 +109,6 @@
 
     <script>
         const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?gid=154322118&single=true&output=csv";
-
-        // Exact Camera Model Image Mapping (Wikimedia Direct Links)
-        const CAMERA_IMAGES = {
-            "Leica M3": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Leica_M3_chrome_top.jpg",
-            "Nikon FM2": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Nikon_FM2_front.jpg",
-            "Nikon F4": "https://upload.wikimedia.org/wikipedia/commons/1/17/Nikon_F4_front.jpg",
-            "F3": "https://upload.wikimedia.org/wikipedia/commons/2/22/Nikon_F3_HP.jpg",
-            "Nikon F3": "https://upload.wikimedia.org/wikipedia/commons/2/22/Nikon_F3_HP.jpg",
-            "Unknown": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80",
-            "Unknown Camera": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80"
-        };
 
         let globalData = {};
         let speedChart, evChart;
@@ -216,11 +195,6 @@
 
             const camData = globalData[selectedCam];
             document.getElementById('cameraDirectionBadge').textContent = camData.direction + " TRAVEL";
-            document.getElementById('cameraTitle').textContent = selectedCam;
-
-            // Update Camera Model Specific Image
-            const imgUrl = CAMERA_IMAGES[selectedCam] || CAMERA_IMAGES["Unknown"];
-            document.getElementById('cameraImg').src = imgUrl;
 
             // Generate Automated Summary
             generateDefectSummary(camData);
@@ -323,7 +297,7 @@
                 evTrend = "Severe systemic EV exposure deviation across multiple settings; requires recalibration.";
             }
 
-            let html = `<h3>Health Diagnostics Summary</h3><ul>`;
+            let html = `<h3>Health Status Analysis</h3><ul>`;
             html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
             html += `<li><strong>Curtain Speed Abnormalities:</strong> ${curtainAnomalies.length > 0 ? curtainAnomalies.join(', ') : 'None (Curtain travel speeds balanced)'}</li>`;
             html += `<li><strong>Overall Trend:</strong> ${evTrend}</li>`;
