@@ -29,7 +29,7 @@
         
         /* Camera Profile Header Card with Thumbnail */
         .camera-card { display: flex; gap: 20px; align-items: center; background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); margin-bottom: 24px; }
-        .camera-thumb { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background-color: var(--bg-dark); flex-shrink: 0; }
+        .camera-thumb { width: 130px; height: 95px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background-color: var(--bg-dark); flex-shrink: 0; }
         .camera-info { flex-grow: 1; }
         .camera-info h2 { font-size: 1.3rem; color: var(--text-main); margin-bottom: 4px; }
         
@@ -71,7 +71,7 @@
 
     <!-- Camera Profile Banner with Dynamic Thumbnail -->
     <div class="camera-card">
-        <img id="cameraImg" class="camera-thumb" src="" alt="Camera Thumbnail" />
+        <img id="cameraImg" class="camera-thumb" src="" alt="Camera Thumbnail" onError="this.onerror=null;this.src='https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=300&q=80';" />
         <div class="camera-info">
             <h2 id="cameraTitle">Selected Camera Profile</h2>
             <div id="summaryContainer" class="summary-box">
@@ -120,15 +120,15 @@
     <script>
         const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?gid=154322118&single=true&output=csv";
 
-        // Online Image Mapping for Camera Models in dataset
+        // Reliable Hotlinkable Image URLs
         const CAMERA_IMAGES = {
-            "Leica M3": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Leica_M3_chrome_top.jpg/640px-Leica_M3_chrome_top.jpg",
-            "Nikon FM2": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Nikon_FM2_front.jpg/640px-Nikon_FM2_front.jpg",
-            "Nikon F4": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Nikon_F4_front.jpg/640px-Nikon_F4_front.jpg",
-            "F3": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Nikon_F3_HP.jpg/640px-Nikon_F3_HP.jpg",
-            "Nikon F3": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Nikon_F3_HP.jpg/640px-Nikon_F3_HP.jpg",
-            "Unknown": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/No_image_available.svg/600px-No_image_available.svg.png",
-            "Unknown Camera": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/No_image_available.svg/600px-No_image_available.svg.png"
+            "Leica M3": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80",
+            "Nikon FM2": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400&q=80",
+            "Nikon F4": "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=400&q=80",
+            "F3": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80",
+            "Nikon F3": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80",
+            "Unknown": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80",
+            "Unknown Camera": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80"
         };
 
         let globalData = {};
