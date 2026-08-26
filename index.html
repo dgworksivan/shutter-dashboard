@@ -225,25 +225,38 @@
                         dataDict[currentCamera].imageUrl = currentImageUrl;
                     }
                 } else {
-                    let colA = parseFloat(row[0]);
-                    let colH_setting = row[7] ? row[7].toString().trim() : ""; // Column H (Index 7)
-                    let colJ_setting = row[9] ? row[9].toString().trim() : ""; // Column J (Index 9)
-                    
-                    // For Sheet 2 (Leaf Shutter), setting is explicitly in Column H, fallback to Column J or Column A
                     let setting = "";
-                    if (sheetIndex === 1) {
-                        setting = colH_setting || colJ_setting || val0;
+                    let pos1 = 0, pos2 = 0, pos3 = 0;
+                    let tEffVal = null;
+
+                    if (sheetIndex === 0) {
+                        // SHEET 1: Curtain Shutter -> Position data from Column D (index 3), E (index 4), F (index 5)
+                        setting = row[9] ? row[9].toString().trim() : val0; // Col J or Col A
+                        pos1 = parseFloat(row[3]) || 0; // Col D
+                        pos2 = parseFloat(row[4]) || 0; // Col E
+                        pos3 = parseFloat(row[5]) || 0; // Col F
+                    } else if (sheetIndex === 1) {
+                        // SHEET 2: Leaf Shutter -> Setting from Column H (index 7), T_eff from Column E (index 4)
+                        setting = row[7] ? row[7].toString().trim() : (row[9] ? row[9].toString().trim() : val0);
+                        pos1 = parseFloat(row[0]) || 0; // T_open
+                        pos2 = parseFloat(row[1]) || 0; // T_wide
+                        pos3 = parseFloat(row[2]) || 0; // T_close
+                        tEffVal = parseFloat(row[4]);   // Actual T_eff from Column E (index 4)
                     } else {
-                        setting = colJ_setting || val0;
+                        // SHEET 3 (Default Fallback)
+                        setting = row[9] ? row[9].toString().trim() : val0;
+                        pos1 = parseFloat(row[0]) || 0;
+                        pos2 = parseFloat(row[1]) || 0;
+                        pos3 = parseFloat(row[2]) || 0;
+                        tEffVal = parseFloat(row[10]);
                     }
 
                     let c1 = parseFloat(row[6]);
                     let c2 = parseFloat(row[7]);
                     let evDiff = parseFloat(row[8]);
-                    let tEffVal = parseFloat(row[10]); 
 
                     let hasSetting = setting !== "";
-                    let hasDataPoint = !isNaN(colA) || !isNaN(tEffVal) || !isNaN(evDiff);
+                    let hasDataPoint = !isNaN(pos1) || (tEffVal !== null && !isNaN(tEffVal)) || !isNaN(evDiff);
 
                     if (hasSetting && hasDataPoint) {
                         if (!dataDict[currentCamera]) {
@@ -252,13 +265,13 @@
 
                         dataDict[currentCamera].readings.push({
                             shutter_setting: setting,
-                            colA_ms: isNaN(colA) ? 0 : colA,
-                            colB_ms: parseFloat(row[1]) || 0,
-                            colC_ms: parseFloat(row[2]) || 0,
+                            pos1_ms: pos1,
+                            pos2_ms: pos2,
+                            pos3_ms: pos3,
                             curtain1_ms: isNaN(c1) ? 0 : c1,
                             curtain2_ms: isNaN(c2) ? 0 : c2,
                             curtain_diff_ev: isNaN(evDiff) ? 0 : evDiff,
-                            t_eff: isNaN(tEffVal) ? null : tEffVal
+                            t_eff: (tEffVal !== null && !isNaN(tEffVal)) ? tEffVal : null
                         });
                     }
                 }
@@ -292,8 +305,6 @@
             if (!selectedCam || !globalData[selectedCam]) return;
 
             const camData = globalData[selectedCam];
-            
-            // Sheet 0 is strictly Curtain Shutter; Sheet 1 is strictly Leaf Shutter
             const isLeafShutter = (activeSheetIndex === 1);
 
             document.getElementById('cameraDirectionBadge').textContent = isLeafShutter ? "LEAF SHUTTER" : camData.direction.toUpperCase();
@@ -333,7 +344,7 @@
                         labels: labels,
                         datasets: [
                             { label: 'Target Speed (1/x)', data: targetDenominator, borderColor: '#38bdf8', backgroundColor: '#38bdf8', tension: 0.1 },
-                            { label: 'Actual T eff (1/x)', data: actualTEff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.1 }
+                            { label: 'Actual T eff (Col E)', data: actualTEff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.1 }
                         ]
                     },
                     options: {
@@ -366,8 +377,7 @@
                         maintainAspectRatio: false,
                         plugins: { legend: { labels: { color: '#f8fafc' } } },
                         scales: {
-                            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'Time (ms)', color: '#94a3b8' } }
+                            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'Time (ms)', color: '#94a3b8' } }
                         }
                     }
                 });
@@ -405,7 +415,7 @@
                         <th>T_open (ms)</th>
                         <th>T_wide (ms)</th>
                         <th>T_close (ms)</th>
-                        <th>Actual T_eff (1/)</th>
+                        <th>Actual T_eff (Col E)</th>
                         <th>Target Speed</th>
                         <th>EV Diff</th>
                         <th>Status</th>
@@ -415,9 +425,9 @@
                 thead.innerHTML = `
                     <tr>
                         <th>Setting</th>
-                        <th>Pos 1 (ms)</th>
-                        <th>Pos 2 (ms)</th>
-                        <th>Pos 3 (ms)</th>
+                        <th>Pos 1 (Col D)</th>
+                        <th>Pos 2 (Col E)</th>
+                        <th>Pos 3 (Col F)</th>
                         <th>Curtain 1 (ms)</th>
                         <th>Curtain 2 (ms)</th>
                         <th>EV Diff</th>
@@ -452,9 +462,9 @@
                     
                     tr.innerHTML = `
                         <td><strong>${r.shutter_setting}</strong></td>
-                        <td>${r.colA_ms}</td>
-                        <td>${r.colB_ms}</td>
-                        <td>${r.colC_ms}</td>
+                        <td>${r.pos1_ms}</td>
+                        <td>${r.pos2_ms}</td>
+                        <td>${r.pos3_ms}</td>
                         <td>${r.t_eff ? '1/' + r.t_eff : 'N/A'}</td>
                         <td>1/${targetDenom}</td>
                         <td>${r.curtain_diff_ev.toFixed(3)}</td>
@@ -463,9 +473,9 @@
                 } else {
                     tr.innerHTML = `
                         <td><strong>${r.shutter_setting}</strong></td>
-                        <td>${r.colA_ms}</td>
-                        <td>${r.colB_ms}</td>
-                        <td>${r.colC_ms}</td>
+                        <td>${r.pos1_ms}</td>
+                        <td>${r.pos2_ms}</td>
+                        <td>${r.pos3_ms}</td>
                         <td>${r.curtain1_ms}</td>
                         <td>${r.curtain2_ms}</td>
                         <td>${r.curtain_diff_ev.toFixed(3)}</td>
@@ -505,9 +515,9 @@
             html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
             
             if (isLeafShutter) {
-                html += `<li><strong>Leaf Shutter Evaluation:</strong> Speeds pulled from Column H. $T_{\\text{eff}}$ measured from mid-opening to mid-closing compared directly against shutter settings.</li>`;
+                html += `<li><strong>Leaf Shutter Evaluation:</strong> Speeds pulled from Column H, actual $T_{\\text{eff}}$ extracted from Column E compared against targeted shutter settings.</li>`;
             } else {
-                html += `<li><strong>Curtain Mechanics:</strong> Evaluated Curtain 1 vs Curtain 2 travel times and positional interval consistency.</li>`;
+                html += `<li><strong>Curtain Mechanics:</strong> Positional data mapped directly from Columns D, E, and F.</li>`;
             }
             
             html += `<li><strong>Overall Trend:</strong> ${evTrend}</li>`;
