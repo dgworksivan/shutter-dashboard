@@ -116,7 +116,7 @@
     </div>
 
     <script>
-        const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv4EOxNXrHJtInRlmwuUXfZs6M5s0AkeEwAG4tBiUPBWOTO1H75pdWFZHPRasVLg/pub?gid=154322118&single=true&output=csv";
+        const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLa5N5rp7MH6SzoDnYYvM4I41guZwK_g9gThPX-DlftfMjjQf8T3jjHWWTBAqJutEUCVocCtIg23m/pub?output=csv";
         const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80";
 
         let globalData = {};
@@ -139,6 +139,20 @@
             } catch (err) {
                 console.error("Fetch Error: ", err);
             }
+        }
+
+        // Helper function to convert standard Google Drive links into direct CDN URLs on the fly
+        function formatImageUrl(url) {
+            if (!url || url.trim() === "") return FALLBACK_IMAGE;
+
+            const driveRegex = /\/d\/([a-zA-Z0-9_-]+)/;
+            const match = url.match(driveRegex);
+
+            if (match && match[1]) {
+                return `https://lh3.googleusercontent.com/d/${match[1]}`;
+            }
+
+            return url;
         }
 
         function parseShutterExcelStructure(rows) {
@@ -212,9 +226,9 @@
             document.getElementById('cameraDirectionBadge').textContent = camData.direction + " TRAVEL";
             document.getElementById('cameraTitle').textContent = selectedCam;
 
-            // Load Image URL parsed directly from Google Sheet
-            const imgUrl = camData.imageUrl && camData.imageUrl !== "" ? camData.imageUrl : FALLBACK_IMAGE;
-            document.getElementById('cameraImg').src = imgUrl;
+            // Load and automatically format Google Drive/direct image link
+            const rawUrl = camData.imageUrl;
+            document.getElementById('cameraImg').src = formatImageUrl(rawUrl);
 
             // Generate Automated Summary
             generateDefectSummary(camData);
