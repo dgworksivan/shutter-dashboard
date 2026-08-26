@@ -69,7 +69,7 @@
     </div>
 
     <div class="camera-card">
-        <img id="cameraImg" class="camera-thumb" referrerpolicy="no-referrer" src="" alt="Camera Thumbnail" onError="this.onerror=null;this.src='https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=300&q=80';" />
+        <img id="cameraImg" class="camera-thumb" src="" alt="Camera Thumbnail" onError="handleImageError(this)" />
         <div class="camera-info">
             <h2 id="cameraTitle">Selected Camera Profile</h2>
             <div id="summaryContainer" class="summary-box">
@@ -141,18 +141,30 @@
             }
         }
 
-        // Helper function to convert standard Google Drive links into direct CDN URLs on the fly
+        // Multi-stage image parser supporting Drive, Imgur, and Direct Web URLs
         function formatImageUrl(url) {
             if (!url || url.trim() === "") return FALLBACK_IMAGE;
 
+            // Handle Imgur Page Links (e.g. imgur.com/abc -> i.imgur.com/abc.jpg)
+            if (url.includes("imgur.com") && !url.includes("i.imgur.com")) {
+                const imgurId = url.split('/').pop().split('.')[0];
+                return `https://i.imgur.com/${imgurId}.jpg`;
+            }
+
+            // Handle Google Drive Links using Thumbnail API
             const driveRegex = /\/d\/([a-zA-Z0-9_-]+)/;
             const match = url.match(driveRegex);
-
             if (match && match[1]) {
-                return `https://lh3.googleusercontent.com/d/${match[1]}`;
+                return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
             }
 
             return url;
+        }
+
+        // Image Load Fallback Handler
+        function handleImageError(img) {
+            img.onerror = null;
+            img.src = FALLBACK_IMAGE;
         }
 
         function parseShutterExcelStructure(rows) {
@@ -226,11 +238,9 @@
             document.getElementById('cameraDirectionBadge').textContent = camData.direction + " TRAVEL";
             document.getElementById('cameraTitle').textContent = selectedCam;
 
-            // Load and automatically format Google Drive/direct image link
             const rawUrl = camData.imageUrl;
             document.getElementById('cameraImg').src = formatImageUrl(rawUrl);
 
-            // Generate Automated Summary
             generateDefectSummary(camData);
 
             const labels = camData.readings.map(r => r.shutter_setting);
