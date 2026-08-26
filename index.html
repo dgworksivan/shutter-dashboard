@@ -364,7 +364,7 @@
                         labels: labels,
                         datasets: [
                             { label: 'Target Speed (1/x)', data: targetDenominator, borderColor: '#38bdf8', backgroundColor: '#38bdf8', tension: 0.1 },
-                            { label: 'Actual T eff (Col E)', data: actualTEff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.1 }
+                            { label: 'Actual T eff', data: actualTEff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.1 }
                         ]
                     },
                     options: {
@@ -432,11 +432,11 @@
             if (isLeafShutter) {
                 thead.innerHTML = `
                     <tr>
-                        <th>Setting (Col H)</th>
+                        <th>Setting</th>
                         <th>T_open (ms)</th>
                         <th>T_wide (ms)</th>
                         <th>T_close (ms)</th>
-                        <th>Actual T_eff (Col E)</th>
+                        <th>Actual T_eff</th>
                         <th>Target Speed</th>
                         <th>Calculated EV Diff</th>
                         <th>Status</th>
@@ -446,9 +446,9 @@
                 thead.innerHTML = `
                     <tr>
                         <th>Setting</th>
-                        <th>Pos 1 (Col D)</th>
-                        <th>Pos 2 (Col E)</th>
-                        <th>Pos 3 (Col F)</th>
+                        <th>Pos 1 (ms)</th>
+                        <th>Pos 2 (ms)</th>
+                        <th>Pos 3 (ms)</th>
                         <th>Curtain 1 (ms)</th>
                         <th>Curtain 2 (ms)</th>
                         <th>EV Diff</th>
@@ -536,9 +536,9 @@
             html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
             
             if (isLeafShutter) {
-                html += `<li><strong>Leaf Shutter Evaluation:</strong> Speeds pulled from Column H, actual $T_{\\text{eff}}$ extracted from Column E. EV deviation calculated using $\\Delta\\text{EV} = \\log_2(T_{\\text{eff}} / \\text{Target Speed})$.</li>`;
+                html += `<li><strong>Leaf Shutter Evaluation:</strong> Speeds pulled directly for leaf mechanics. EV deviation calculated using $\\Delta\\text{EV} = \\log_2(T_{\\text{eff}} / \\text{Target Speed})$.</li>`;
             } else {
-                html += `<li><strong>Curtain Mechanics:</strong> Positional data mapped directly from Columns D, E, and F.</li>`;
+                html += `<li><strong>Curtain Mechanics:</strong> Positional data mapped to timing points for curtain travel evaluation.</li>`;
             }
             
             html += `<li><strong>Overall Trend:</strong> ${evTrend}</li>`;
