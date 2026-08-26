@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera Shutter Analytics Dashboard</title>
+    <title>Multi-Sheet Camera Shutter Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
@@ -20,20 +20,25 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text-main); padding: 24px; min-height: 100vh; }
-        .header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+        
+        .header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
         .header h1 { font-size: 1.5rem; color: var(--accent-blue); }
+        
+        /* Navigation Bar for Google Sheets Pages */
+        .sheet-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid var(--border); overflow-x: auto; padding-bottom: 4px; }
+        .tab-btn { background: var(--panel-bg); color: var(--text-sub); border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
+        .tab-btn:hover { background: #2d3d54; color: var(--text-main); }
+        .tab-btn.active { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); }
+
         .controls { display: flex; gap: 16px; margin-bottom: 24px; background: var(--panel-bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border); align-items: center; }
         .control-group { display: flex; flex-direction: column; gap: 6px; }
         label { font-size: 0.85rem; color: var(--text-sub); text-transform: uppercase; font-weight: 600; }
         select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; outline: none; cursor: pointer; }
         
         .camera-card { background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); margin-bottom: 24px; }
-        
-        /* Flex row placing title and button right next to each other */
         .camera-header-inline { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
         .camera-header-inline h2 { font-size: 1.4rem; color: var(--text-main); }
         
-        /* Enlarged Google Drive Button */
         .drive-link-btn {
             display: inline-flex;
             align-items: center;
@@ -46,29 +51,25 @@
             font-size: 0.95rem;
             font-weight: 600;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
-        .drive-link-btn:hover { background-color: #0369a1; transform: translateY(-1px); }
-        .drive-link-btn.disabled {
-            background-color: var(--border);
-            color: var(--text-sub);
-            cursor: not-allowed;
-            pointer-events: none;
-            box-shadow: none;
-        }
+        .drive-link-btn:hover { background-color: #0369a1; }
+        .drive-link-btn.disabled { background-color: var(--border); color: var(--text-sub); cursor: not-allowed; pointer-events: none; }
 
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 24px; }
         .card { background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); margin-bottom: 24px; }
         .card h2 { font-size: 1.1rem; margin-bottom: 16px; color: var(--text-sub); display: flex; justify-content: space-between; }
         .badge { background: #0369a1; color: #e0f2fe; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
         .chart-container { position: relative; height: 300px; width: 100%; }
+        
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; }
         th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--border); }
         th { background-color: var(--bg-dark); color: var(--text-sub); text-transform: uppercase; font-weight: 600; font-size: 0.75rem; }
         th:first-child, td:first-child { text-align: left; }
+        
         .status-pass { color: var(--accent-green); font-weight: 600; }
         .status-warn { color: var(--accent-orange); font-weight: 600; }
         .status-fail { color: var(--accent-red); font-weight: 600; }
+        
         .summary-box { background: var(--bg-dark); padding: 16px; border-radius: 8px; border-left: 4px solid var(--accent-blue); margin-top: 12px; }
         .summary-box h3 { font-size: 0.95rem; color: var(--accent-blue); margin-bottom: 8px; }
         .summary-box ul { list-style-type: square; padding-left: 20px; color: var(--text-main); font-size: 0.85rem; line-height: 1.5; }
@@ -77,9 +78,12 @@
 <body>
 
     <div class="header">
-        <h1>📷 Live Shutter Tester Web Dashboard</h1>
+        <h1>📷 Live Shutter Analytics Dashboard</h1>
         <div id="cameraDirectionBadge" class="badge">Awaiting Data</div>
     </div>
+
+    <!-- Sheet Tabs (Populated dynamically) -->
+    <div id="sheetTabsNav" class="sheet-tabs"></div>
 
     <div class="controls">
         <div class="control-group">
@@ -89,7 +93,7 @@
             </select>
         </div>
         <div style="margin-left: auto;">
-            <button onclick="fetchLiveData()" style="background: var(--accent-blue); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">↻ Refresh Data</button>
+            <button onclick="fetchSheetData(activeSheetIndex)" style="background: var(--accent-blue); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">↻ Refresh Page</button>
         </div>
     </div>
 
@@ -101,20 +105,20 @@
             </a>
         </div>
         <div id="summaryContainer" class="summary-box">
-            <!-- Summary inserted via JS -->
+            <!-- Diagnostics inserted via JS -->
         </div>
     </div>
 
     <div class="grid">
         <div class="card">
-            <h2>Curtain Speed Consistency <span>(Travel Time in ms)</span></h2>
+            <h2 id="chart1Title">Curtain Speed / Timing Performance</h2>
             <div class="chart-container">
-                <canvas id="curtainSpeedChart"></canvas>
+                <canvas id="primaryChart"></canvas>
             </div>
         </div>
 
         <div class="card">
-            <h2>Exposure Uniformity <span>(Curtain Diff EV)</span></h2>
+            <h2 id="chart2Title">Exposure Deviation <span>(EV Diff)</span></h2>
             <div class="chart-container">
                 <canvas id="evDiffChart"></canvas>
             </div>
@@ -124,17 +128,8 @@
     <div class="card">
         <h2>Detailed Diagnostics Table</h2>
         <table id="dataTable">
-            <thead>
-                <tr>
-                    <th>Setting</th>
-                    <th>Pos 1 (ms)</th>
-                    <th>Pos 2 (ms)</th>
-                    <th>Pos 3 (ms)</th>
-                    <th>Curtain 1 (ms)</th>
-                    <th>Curtain 2 (ms)</th>
-                    <th>EV Diff</th>
-                    <th>Status</th>
-                </tr>
+            <thead id="tableHead">
+                <!-- Dynamically assigned based on shutter type -->
             </thead>
             <tbody>
                 <!-- Populated via JS -->
@@ -143,14 +138,40 @@
     </div>
 
     <script>
-        const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLa5N5rp7MH6SzoDnYYvM4I41guZwK_g9gThPX-DlftfMjjQf8T3jjHWWTBAqJutEUCVocCtIg23m/pub?output=csv";
+        // Configure individual Sheet IDs/GIDs here for multi-page support
+        const SHEET_CONFIG = [
+            { name: "Focal Plane Testing", gid: "0" },
+            { name: "Leaf Shutter Testing", gid: "123456789" } // Replace with your Sheet 2 GID
+        ];
 
+        const BASE_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLa5N5rp7MH6SzoDnYYvM4I41guZwK_g9gThPX-DlftfMjjQf8T3jjHWWTBAqJutEUCVocCtIg23m/pub?output=csv&single=true&gid=";
+
+        let activeSheetIndex = 0;
         let globalData = {};
-        let speedChart, evChart;
+        let chart1, chart2;
 
-        async function fetchLiveData() {
+        function renderTabs() {
+            const tabsContainer = document.getElementById('sheetTabsNav');
+            tabsContainer.innerHTML = '';
+            SHEET_CONFIG.forEach((sheet, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn ${idx === activeSheetIndex ? 'active' : ''}`;
+                btn.textContent = sheet.name;
+                btn.onclick = () => switchSheetPage(idx);
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function switchSheetPage(index) {
+            activeSheetIndex = index;
+            renderTabs();
+            fetchSheetData(index);
+        }
+
+        async function fetchSheetData(index) {
+            const targetUrl = BASE_SPREADSHEET_URL + SHEET_CONFIG[index].gid;
             try {
-                const response = await fetch(GOOGLE_SHEETS_CSV_URL);
+                const response = await fetch(targetUrl);
                 const csvText = await response.text();
                 
                 Papa.parse(csvText, {
@@ -165,6 +186,16 @@
             } catch (err) {
                 console.error("Fetch Error: ", err);
             }
+        }
+
+        // Helper function to parse fractional shutter speed strings (e.g., "1/500") into seconds
+        function parseShutterFraction(str) {
+            if (!str) return 0;
+            if (str.includes('/')) {
+                const parts = str.split('/');
+                return parseFloat(parts[0]) / parseFloat(parts[1]);
+            }
+            return parseFloat(str);
         }
 
         function parseShutterExcelStructure(rows) {
@@ -199,19 +230,24 @@
                     let c2 = parseFloat(row[7]);
                     let evDiff = parseFloat(row[8]);
                     let setting = row[9] ? row[9].toString().trim() : "";
+                    
+                    // Leaf Shutter specific field: T eff. (1/)
+                    let tEffVal = parseFloat(row[10]); 
 
-                    if (!isNaN(pos1) && !isNaN(c1) && setting !== "") {
+                    if (!isNaN(pos1) && setting !== "") {
                         if (!dataDict[currentCamera]) {
                             dataDict[currentCamera] = { direction: currentDirection, imageUrl: currentImageUrl, readings: [] };
                         }
+
                         dataDict[currentCamera].readings.push({
                             shutter_setting: setting,
                             left_top_ms: pos1,
                             mid_ms: parseFloat(row[1]) || 0,
                             right_bot_ms: parseFloat(row[2]) || 0,
-                            curtain1_ms: c1,
-                            curtain2_ms: c2,
-                            curtain_diff_ev: isNaN(evDiff) ? 0 : evDiff
+                            curtain1_ms: c1 || 0,
+                            curtain2_ms: c2 || 0,
+                            curtain_diff_ev: isNaN(evDiff) ? 0 : evDiff,
+                            t_eff: isNaN(tEffVal) ? null : tEffVal
                         });
                     }
                 }
@@ -235,9 +271,12 @@
             if (!selectedCam || !globalData[selectedCam]) return;
 
             const camData = globalData[selectedCam];
-            document.getElementById('cameraDirectionBadge').textContent = camData.direction + " TRAVEL";
+            const isLeafShutter = camData.direction.toUpperCase().includes("LEAF");
+
+            document.getElementById('cameraDirectionBadge').textContent = camData.direction + " MODE";
             document.getElementById('cameraTitle').textContent = selectedCam;
 
+            // Link Button
             const linkBtn = document.getElementById('driveFolderLink');
             if (camData.imageUrl && camData.imageUrl.trim() !== "") {
                 linkBtn.href = camData.imageUrl;
@@ -249,36 +288,72 @@
                 linkBtn.textContent = '📁 No Photo Link Available';
             }
 
-            generateDefectSummary(camData);
+            generateDefectSummary(camData, isLeafShutter);
 
             const labels = camData.readings.map(r => r.shutter_setting);
-            const c1Ms = camData.readings.map(r => r.curtain1_ms);
-            const c2Ms = camData.readings.map(r => r.curtain2_ms);
             const evDiff = camData.readings.map(r => r.curtain_diff_ev);
 
-            if (speedChart) speedChart.destroy();
-            speedChart = new Chart(document.getElementById('curtainSpeedChart'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Curtain 1 (ms)', data: c1Ms, borderColor: '#38bdf8', backgroundColor: '#38bdf8', tension: 0.2 },
-                        { label: 'Curtain 2 (ms)', data: c2Ms, borderColor: '#fb923c', backgroundColor: '#fb923c', tension: 0.2 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#f8fafc' } } },
-                    scales: {
-                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'Time (ms)', color: '#94a3b8' } }
-                    }
-                }
-            });
+            // Chart 1: Focal Plane vs Leaf Shutter rendering logic
+            if (chart1) chart1.destroy();
+            
+            if (isLeafShutter) {
+                document.getElementById('chart1Title').innerHTML = "Exposure Time Accuracy <span>Target vs Actual T<sub>eff</sub> (1/s)</span>";
+                
+                const targetDenominator = camData.readings.map(r => {
+                    const sec = parseShutterFraction(r.shutter_setting);
+                    return sec > 0 ? (1 / sec) : 0;
+                });
+                const actualTEff = camData.readings.map(r => r.t_eff);
 
-            if (evChart) evChart.destroy();
-            evChart = new Chart(document.getElementById('evDiffChart'), {
+                chart1 = new Chart(document.getElementById('primaryChart'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'Target Speed (1/x)', data: targetDenominator, borderColor: '#38bdf8', backgroundColor: '#38bdf8', tension: 0.1 },
+                            { label: 'Actual T eff (1/x)', data: actualTEff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.1 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#f8fafc' } } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'Effective Speed (1/sec)', color: '#94a3b8' } }
+                        }
+                    }
+                });
+
+            } else {
+                document.getElementById('chart1Title').innerHTML = "Curtain Speed Consistency <span>(Travel Time in ms)</span>";
+                const c1Ms = camData.readings.map(r => r.curtain1_ms);
+                const c2Ms = camData.readings.map(r => r.curtain2_ms);
+
+                chart1 = new Chart(document.getElementById('primaryChart'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'Curtain 1 (ms)', data: c1Ms, borderColor: '#38bdf8', backgroundColor: '#38bdf8', tension: 0.2 },
+                            { label: 'Curtain 2 (ms)', data: c2Ms, borderColor: '#fb923c', backgroundColor: '#fb923c', tension: 0.2 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#f8fafc' } } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'Time (ms)', color: '#94a3b8' } }
+                        }
+                    }
+                });
+            }
+
+            // Chart 2: EV Deviation
+            if (chart2) chart2.destroy();
+            chart2 = new Chart(document.getElementById('evDiffChart'), {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -299,6 +374,37 @@
                 }
             });
 
+            // Table Header Construction
+            const thead = document.getElementById('tableHead');
+            if (isLeafShutter) {
+                thead.innerHTML = `
+                    <tr>
+                        <th>Setting</th>
+                        <th>Pos 1 (ms)</th>
+                        <th>Pos 2 (ms)</th>
+                        <th>Pos 3 (ms)</th>
+                        <th>Actual T eff (1/)</th>
+                        <th>Target (1/)</th>
+                        <th>EV Diff</th>
+                        <th>Status</th>
+                    </tr>
+                `;
+            } else {
+                thead.innerHTML = `
+                    <tr>
+                        <th>Setting</th>
+                        <th>Pos 1 (ms)</th>
+                        <th>Pos 2 (ms)</th>
+                        <th>Pos 3 (ms)</th>
+                        <th>Curtain 1 (ms)</th>
+                        <th>Curtain 2 (ms)</th>
+                        <th>EV Diff</th>
+                        <th>Status</th>
+                    </tr>
+                `;
+            }
+
+            // Table Body Populate
             const tbody = document.querySelector('#dataTable tbody');
             tbody.innerHTML = '';
             camData.readings.forEach(r => {
@@ -310,34 +416,45 @@
                 if (absEv > 0.66) { statusClass = 'status-fail'; statusText = 'ACTION REQ'; }
                 else if (absEv > 0.33) { statusClass = 'status-warn'; statusText = 'MARGINAL'; }
 
-                tr.innerHTML = `
-                    <td><strong>${r.shutter_setting}</strong></td>
-                    <td>${r.left_top_ms}</td>
-                    <td>${r.mid_ms}</td>
-                    <td>${r.right_bot_ms}</td>
-                    <td>${r.curtain1_ms}</td>
-                    <td>${r.curtain2_ms}</td>
-                    <td>${r.curtain_diff_ev.toFixed(3)}</td>
-                    <td class="${statusClass}">${statusText}</td>
-                `;
+                if (isLeafShutter) {
+                    const sec = parseShutterFraction(r.shutter_setting);
+                    const targetDenom = sec > 0 ? Math.round(1 / sec) : '-';
+                    
+                    tr.innerHTML = `
+                        <td><strong>${r.shutter_setting}</strong></td>
+                        <td>${r.left_top_ms}</td>
+                        <td>${r.mid_ms}</td>
+                        <td>${r.right_bot_ms}</td>
+                        <td>${r.t_eff ? '1/' + r.t_eff : 'N/A'}</td>
+                        <td>1/${targetDenom}</td>
+                        <td>${r.curtain_diff_ev.toFixed(3)}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                    `;
+                } else {
+                    tr.innerHTML = `
+                        <td><strong>${r.shutter_setting}</strong></td>
+                        <td>${r.left_top_ms}</td>
+                        <td>${r.mid_ms}</td>
+                        <td>${r.right_bot_ms}</td>
+                        <td>${r.curtain1_ms}</td>
+                        <td>${r.curtain2_ms}</td>
+                        <td>${r.curtain_diff_ev.toFixed(3)}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                    `;
+                }
                 tbody.appendChild(tr);
             });
         }
 
-        function generateDefectSummary(camData) {
+        function generateDefectSummary(camData, isLeafShutter) {
             const container = document.getElementById('summaryContainer');
             let invalidSpeeds = [];
-            let curtainAnomalies = [];
             let evTrend = "";
 
             camData.readings.forEach(r => {
                 const absEv = Math.abs(r.curtain_diff_ev);
                 if (absEv > 0.33) {
                     invalidSpeeds.push(`${r.shutter_setting} (${r.curtain_diff_ev.toFixed(2)} EV)`);
-                }
-                const curtainDiff = Math.abs(r.curtain1_ms - r.curtain2_ms);
-                if (curtainDiff > 2.0) {
-                    curtainAnomalies.push(`${r.shutter_setting} (C1: ${r.curtain1_ms}ms vs C2: ${r.curtain2_ms}ms)`);
                 }
             });
 
@@ -349,16 +466,23 @@
                 evTrend = "Severe systemic EV exposure deviation across multiple settings; requires recalibration.";
             }
 
-            let html = `<h3>Health Diagnostics Summary</h3><ul>`;
+            let html = `<h3>Health Diagnostics Summary (${isLeafShutter ? 'Leaf Shutter Mode' : 'Focal Plane Mode'})</h3><ul>`;
             html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
-            html += `<li><strong>Curtain Speed Abnormalities:</strong> ${curtainAnomalies.length > 0 ? curtainAnomalies.join(', ') : 'None (Curtain travel speeds balanced)'}</li>`;
+            
+            if (isLeafShutter) {
+                html += `<li><strong>Efficiency Metrics:</strong> Evaluated actual effective opening times ($T_{\text{eff}}$) against targeted speed settings.</li>`;
+            }
+            
             html += `<li><strong>Overall Trend:</strong> ${evTrend}</li>`;
             html += `</ul>`;
 
             container.innerHTML = html;
         }
 
-        window.onload = fetchLiveData;
+        window.onload = () => {
+            renderTabs();
+            fetchSheetData(0);
+        };
     </script>
 </body>
 </html>
