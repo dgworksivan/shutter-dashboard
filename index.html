@@ -138,11 +138,11 @@
     </div>
 
     <script>
-        // SHEET CONFIGURATION WITH UPDATED GIDs
+        // UPDATED SHEET CONFIGURATION NAMES & GIDs
         const SHEET_CONFIG = [
-            { name: "Sheet 1", gid: "0" },
-            { name: "Sheet 2", gid: "1651253495" },
-            { name: "Sheet 3", gid: "1988755230" }
+            { name: "My curtain shutter", gid: "0" },
+            { name: "My Focal plane", gid: "1651253495" },
+            { name: "For sell", gid: "1988755230" }
         ];
 
         const BASE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLa5N5rp7MH6SzoDnYYvM4I41guZwK_g9gThPX-DlftfMjjQf8T3jjHWWTBAqJutEUCVocCtIg23m/pub?output=csv&single=true&gid=";
@@ -215,7 +215,7 @@
                     if (!dataDict[currentCamera]) {
                         dataDict[currentCamera] = { direction: "STANDARD", imageUrl: "", readings: [] };
                     }
-                } else if (val0Upper.startsWith("CURTAIN DIRECTION:") || val0Upper.startsWith("SHUTTER TYPE:")) {
+                } else if (val0Upper.startsWith("CURTAIN DIRECTION:") || val0Upper.startsWith("SHUTTER TYPE:") || val0Upper.startsWith("MODE:")) {
                     currentDirection = val1 || "STANDARD";
                     if (dataDict[currentCamera]) {
                         dataDict[currentCamera].direction = currentDirection;
@@ -243,9 +243,9 @@
 
                         dataDict[currentCamera].readings.push({
                             shutter_setting: setting || val0,
-                            left_top_ms: isNaN(pos1) ? 0 : pos1,
-                            mid_ms: parseFloat(row[1]) || 0,
-                            right_bot_ms: parseFloat(row[2]) || 0,
+                            topen_ms: isNaN(pos1) ? 0 : pos1,
+                            twide_ms: parseFloat(row[1]) || 0,
+                            tclose_ms: parseFloat(row[2]) || 0,
                             curtain1_ms: isNaN(c1) ? 0 : c1,
                             curtain2_ms: isNaN(c2) ? 0 : c2,
                             curtain_diff_ev: isNaN(evDiff) ? 0 : evDiff,
@@ -284,8 +284,9 @@
 
             const camData = globalData[selectedCam];
             
+            const dirUpper = camData.direction.toUpperCase();
             const hasTEffData = camData.readings.some(r => r.t_eff !== null && r.t_eff > 0);
-            const isNonFocalPlane = hasTEffData || !camData.direction.toUpperCase().includes("CURTAIN");
+            const isLeafShutter = dirUpper.includes("LEAF") || hasTEffData || !dirUpper.includes("CURTAIN");
 
             document.getElementById('cameraDirectionBadge').textContent = camData.direction.toUpperCase();
             document.getElementById('cameraTitle').textContent = selectedCam;
@@ -301,7 +302,7 @@
                 linkBtn.textContent = '📁 No Photo Link Available';
             }
 
-            generateDefectSummary(camData, isNonFocalPlane);
+            generateDefectSummary(camData, isLeafShutter);
 
             const labels = camData.readings.map(r => r.shutter_setting);
             const evDiff = camData.readings.map(r => r.curtain_diff_ev);
@@ -309,8 +310,8 @@
             // Chart 1 Setup
             if (chart1) chart1.destroy();
             
-            if (isNonFocalPlane) {
-                document.getElementById('chart1Title').innerHTML = "Exposure Time Accuracy <span>Target vs Actual T<sub>eff</sub> (1/s)</span>";
+            if (isLeafShutter) {
+                document.getElementById('chart1Title').innerHTML = "Leaf Shutter Accuracy <span>Target vs Actual T<sub>eff</sub> (1/s)</span>";
                 
                 const targetDenominator = camData.readings.map(r => {
                     const sec = parseShutterFraction(r.shutter_setting);
@@ -371,7 +372,7 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Curtain Diff (EV)', data: evDiff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.2 },
+                        { label: 'Exposure Diff (EV)', data: evDiff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.2 },
                         { label: 'Upper Limit (+0.33 EV)', data: Array(labels.length).fill(0.33), borderColor: '#f87171', borderDash: [5, 5], pointRadius: 0 },
                         { label: 'Lower Limit (-0.33 EV)', data: Array(labels.length).fill(-0.33), borderColor: '#f87171', borderDash: [5, 5], pointRadius: 0 }
                     ]
@@ -389,15 +390,15 @@
 
             // Table Header Setup
             const thead = document.getElementById('tableHead');
-            if (isNonFocalPlane) {
+            if (isLeafShutter) {
                 thead.innerHTML = `
                     <tr>
                         <th>Setting</th>
-                        <th>Pos 1 (ms)</th>
-                        <th>Pos 2 (ms)</th>
-                        <th>Pos 3 (ms)</th>
-                        <th>Actual T eff (1/)</th>
-                        <th>Target (1/)</th>
+                        <th>T_open (ms)</th>
+                        <th>T_wide (ms)</th>
+                        <th>T_close (ms)</th>
+                        <th>Actual T_eff (1/)</th>
+                        <th>Target Speed</th>
                         <th>EV Diff</th>
                         <th>Status</th>
                     </tr>
@@ -437,15 +438,15 @@
                 if (absEv > 0.66) { statusClass = 'status-fail'; statusText = 'ACTION REQ'; }
                 else if (absEv > 0.33) { statusClass = 'status-warn'; statusText = 'MARGINAL'; }
 
-                if (isNonFocalPlane) {
+                if (isLeafShutter) {
                     const sec = parseShutterFraction(r.shutter_setting);
                     const targetDenom = sec > 0 ? Math.round(1 / sec) : '-';
                     
                     tr.innerHTML = `
                         <td><strong>${r.shutter_setting}</strong></td>
-                        <td>${r.left_top_ms}</td>
-                        <td>${r.mid_ms}</td>
-                        <td>${r.right_bot_ms}</td>
+                        <td>${r.topen_ms}</td>
+                        <td>${r.twide_ms}</td>
+                        <td>${r.tclose_ms}</td>
                         <td>${r.t_eff ? '1/' + r.t_eff : 'N/A'}</td>
                         <td>1/${targetDenom}</td>
                         <td>${r.curtain_diff_ev.toFixed(3)}</td>
@@ -454,9 +455,9 @@
                 } else {
                     tr.innerHTML = `
                         <td><strong>${r.shutter_setting}</strong></td>
-                        <td>${r.left_top_ms}</td>
-                        <td>${r.mid_ms}</td>
-                        <td>${r.right_bot_ms}</td>
+                        <td>${r.topen_ms}</td>
+                        <td>${r.twide_ms}</td>
+                        <td>${r.tclose_ms}</td>
                         <td>${r.curtain1_ms}</td>
                         <td>${r.curtain2_ms}</td>
                         <td>${r.curtain_diff_ev.toFixed(3)}</td>
@@ -467,7 +468,7 @@
             });
         }
 
-        function generateDefectSummary(camData, isNonFocalPlane) {
+        function generateDefectSummary(camData, isLeafShutter) {
             const container = document.getElementById('summaryContainer');
             let invalidSpeeds = [];
             let evTrend = "";
@@ -492,11 +493,11 @@
                 evTrend = "Severe systemic EV exposure deviation across multiple settings; requires recalibration.";
             }
 
-            let html = `<h3>Health Diagnostics Summary (${isNonFocalPlane ? 'T_eff Analysis' : 'Curtain Timing Analysis'})</h3><ul>`;
+            let html = `<h3>Health Diagnostics Summary (${isLeafShutter ? 'MODE: LEAF SHUTTER' : 'Curtain Timing Analysis'})</h3><ul>`;
             html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
             
-            if (isNonFocalPlane) {
-                html += `<li><strong>Efficiency Metrics:</strong> Evaluated actual effective opening times (T<sub>eff</sub>) against targeted speed settings.</li>`;
+            if (isLeafShutter) {
+                html += `<li><strong>Leaf Mechanics:</strong> $T_{\\text{eff}}$ measured from mid-opening to mid-closing compared directly to the target shutter setting.</li>`;
             }
             
             html += `<li><strong>Overall Trend:</strong> ${evTrend}</li>`;
