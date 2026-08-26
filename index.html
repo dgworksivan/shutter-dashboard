@@ -27,11 +27,31 @@
         label { font-size: 0.85rem; color: var(--text-sub); text-transform: uppercase; font-weight: 600; }
         select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; outline: none; cursor: pointer; }
         
-        .camera-card { display: flex; gap: 20px; align-items: center; background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); margin-bottom: 24px; }
-        .camera-thumb { width: 130px; height: 95px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background-color: var(--bg-dark); flex-shrink: 0; }
-        .camera-info { flex-grow: 1; }
-        .camera-info h2 { font-size: 1.3rem; color: var(--text-main); margin-bottom: 4px; }
+        .camera-card { background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); margin-bottom: 24px; }
+        .camera-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 12px; }
+        .camera-info h2 { font-size: 1.3rem; color: var(--text-main); }
         
+        .drive-link-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #0284c7;
+            color: #ffffff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+        }
+        .drive-link-btn:hover { background-color: #0369a1; }
+        .drive-link-btn.disabled {
+            background-color: var(--border);
+            color: var(--text-sub);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 24px; }
         .card { background: var(--panel-bg); border-radius: 10px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); margin-bottom: 24px; }
         .card h2 { font-size: 1.1rem; margin-bottom: 16px; color: var(--text-sub); display: flex; justify-content: space-between; }
@@ -69,12 +89,16 @@
     </div>
 
     <div class="camera-card">
-        <img id="cameraImg" class="camera-thumb" src="" alt="Camera Thumbnail" onError="handleImageError(this)" />
-        <div class="camera-info">
-            <h2 id="cameraTitle">Selected Camera Profile</h2>
-            <div id="summaryContainer" class="summary-box">
-                <!-- Summary inserted via JS -->
+        <div class="camera-header">
+            <div class="camera-info">
+                <h2 id="cameraTitle">Selected Camera Profile</h2>
             </div>
+            <a id="driveFolderLink" href="#" target="_blank" class="drive-link-btn disabled">
+                📁 View Camera Photos (Google Drive)
+            </a>
+        </div>
+        <div id="summaryContainer" class="summary-box">
+            <!-- Summary inserted via JS -->
         </div>
     </div>
 
@@ -117,7 +141,6 @@
 
     <script>
         const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLa5N5rp7MH6SzoDnYYvM4I41guZwK_g9gThPX-DlftfMjjQf8T3jjHWWTBAqJutEUCVocCtIg23m/pub?output=csv";
-        const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80";
 
         let globalData = {};
         let speedChart, evChart;
@@ -139,32 +162,6 @@
             } catch (err) {
                 console.error("Fetch Error: ", err);
             }
-        }
-
-        // Multi-stage image parser supporting Drive, Imgur, and Direct Web URLs
-        function formatImageUrl(url) {
-            if (!url || url.trim() === "") return FALLBACK_IMAGE;
-
-            // Handle Imgur Page Links (e.g. imgur.com/abc -> i.imgur.com/abc.jpg)
-            if (url.includes("imgur.com") && !url.includes("i.imgur.com")) {
-                const imgurId = url.split('/').pop().split('.')[0];
-                return `https://i.imgur.com/${imgurId}.jpg`;
-            }
-
-            // Handle Google Drive Links using Thumbnail API
-            const driveRegex = /\/d\/([a-zA-Z0-9_-]+)/;
-            const match = url.match(driveRegex);
-            if (match && match[1]) {
-                return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
-            }
-
-            return url;
-        }
-
-        // Image Load Fallback Handler
-        function handleImageError(img) {
-            img.onerror = null;
-            img.src = FALLBACK_IMAGE;
         }
 
         function parseShutterExcelStructure(rows) {
@@ -238,8 +235,17 @@
             document.getElementById('cameraDirectionBadge').textContent = camData.direction + " TRAVEL";
             document.getElementById('cameraTitle').textContent = selectedCam;
 
-            const rawUrl = camData.imageUrl;
-            document.getElementById('cameraImg').src = formatImageUrl(rawUrl);
+            // Update Google Drive Folder Link
+            const linkBtn = document.getElementById('driveFolderLink');
+            if (camData.imageUrl && camData.imageUrl.trim() !== "") {
+                linkBtn.href = camData.imageUrl;
+                linkBtn.classList.remove('disabled');
+                linkBtn.textContent = '📁 View Camera Photos (Google Drive)';
+            } else {
+                linkBtn.href = '#';
+                linkBtn.classList.add('disabled');
+                linkBtn.textContent = '📁 No Photo Link Available';
+            }
 
             generateDefectSummary(camData);
 
