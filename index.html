@@ -82,7 +82,7 @@
         <div id="cameraDirectionBadge" class="badge">Awaiting Data</div>
     </div>
 
-    <!-- Sheet Tabs (Populated dynamically) -->
+    <!-- Sheet Tabs -->
     <div id="sheetTabsNav" class="sheet-tabs"></div>
 
     <div class="controls">
@@ -141,7 +141,7 @@
         // Configure individual Sheet IDs/GIDs here for multi-page support
         const SHEET_CONFIG = [
             { name: "Focal Plane Testing", gid: "0" },
-            { name: "Leaf Shutter Testing", gid: "123456789" } // Replace with your Sheet 2 GID
+            { name: "Leaf Shutter Testing", gid: "123456789" } // Update with your leaf shutter sheet GID
         ];
 
         const BASE_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuLa5N5rp7MH6SzoDnYYvM4I41guZwK_g9gThPX-DlftfMjjQf8T3jjHWWTBAqJutEUCVocCtIg23m/pub?output=csv&single=true&gid=";
@@ -188,11 +188,10 @@
             }
         }
 
-        // Helper function to parse fractional shutter speed strings (e.g., "1/500") into seconds
         function parseShutterFraction(str) {
             if (!str) return 0;
-            if (str.includes('/')) {
-                const parts = str.split('/');
+            if (str.toString().includes('/')) {
+                const parts = str.toString().split('/');
                 return parseFloat(parts[0]) / parseFloat(parts[1]);
             }
             return parseFloat(str);
@@ -208,18 +207,20 @@
                 let row = rows[i];
                 let val0 = row[0] ? row[0].toString().trim() : "";
                 let val1 = row[1] ? row[1].toString().trim() : "";
+                let val0Upper = val0.toUpperCase();
 
-                if (val0.startsWith("CAMERA MODEL:")) {
+                if (val0Upper.startsWith("CAMERA MODEL:")) {
                     currentCamera = val1 || "Unknown Camera";
+                    // Initialize camera object immediately so it registers in the dropdown even if empty
                     if (!dataDict[currentCamera]) {
                         dataDict[currentCamera] = { direction: "HORIZONTAL", imageUrl: "", readings: [] };
                     }
-                } else if (val0.startsWith("CURTAIN DIRECTION:")) {
+                } else if (val0Upper.startsWith("CURTAIN DIRECTION:")) {
                     currentDirection = val1 || "HORIZONTAL";
                     if (dataDict[currentCamera]) {
                         dataDict[currentCamera].direction = currentDirection;
                     }
-                } else if (val0.startsWith("IMAGE_URL:")) {
+                } else if (val0Upper.startsWith("IMAGE_URL:")) {
                     currentImageUrl = val1 || "";
                     if (dataDict[currentCamera]) {
                         dataDict[currentCamera].imageUrl = currentImageUrl;
@@ -230,22 +231,24 @@
                     let c2 = parseFloat(row[7]);
                     let evDiff = parseFloat(row[8]);
                     let setting = row[9] ? row[9].toString().trim() : "";
-                    
-                    // Leaf Shutter specific field: T eff. (1/)
                     let tEffVal = parseFloat(row[10]); 
 
-                    if (!isNaN(pos1) && setting !== "") {
+                    // Relaxed row check: captures Leaf Shutters & For Sale entries with partial numerical data
+                    let hasSetting = setting !== "" || val0 !== "";
+                    let hasDataPoint = !isNaN(pos1) || !isNaN(tEffVal) || !isNaN(evDiff);
+
+                    if (hasSetting && hasDataPoint) {
                         if (!dataDict[currentCamera]) {
                             dataDict[currentCamera] = { direction: currentDirection, imageUrl: currentImageUrl, readings: [] };
                         }
 
                         dataDict[currentCamera].readings.push({
-                            shutter_setting: setting,
-                            left_top_ms: pos1,
+                            shutter_setting: setting || val0,
+                            left_top_ms: isNaN(pos1) ? 0 : pos1,
                             mid_ms: parseFloat(row[1]) || 0,
                             right_bot_ms: parseFloat(row[2]) || 0,
-                            curtain1_ms: c1 || 0,
-                            curtain2_ms: c2 || 0,
+                            curtain1_ms: isNaN(c1) ? 0 : c1,
+                            curtain2_ms: isNaN(c2) ? 0 : c2,
                             curtain_diff_ev: isNaN(evDiff) ? 0 : evDiff,
                             t_eff: isNaN(tEffVal) ? null : tEffVal
                         });
@@ -258,7 +261,16 @@
         function populateCameraDropdown() {
             const select = document.getElementById('cameraSelect');
             select.innerHTML = '';
-            Object.keys(globalData).forEach(cam => {
+            const cameras = Object.keys(globalData);
+            
+            if (cameras.length === 0) {
+                const opt = document.createElement('option');
+                opt.textContent = 'No Cameras Found';
+                select.appendChild(opt);
+                return;
+            }
+
+            cameras.forEach(cam => {
                 const opt = document.createElement('option');
                 opt.value = cam;
                 opt.textContent = cam;
@@ -267,16 +279,19 @@
         }
 
         function updateDashboard() {
-            const selectedCam = document.getElementById('cameraSelect').value;
+            const select = document.getElementById('cameraSelect');
+            const selectedCam = select.value;
             if (!selectedCam || !globalData[selectedCam]) return;
 
             const camData = globalData[selectedCam];
+            
+            // Case-insensitive check for Leaf Shutter modes
             const isLeafShutter = camData.direction.toUpperCase().includes("LEAF");
 
             document.getElementById('cameraDirectionBadge').textContent = camData.direction + " MODE";
             document.getElementById('cameraTitle').textContent = selectedCam;
 
-            // Link Button
+            // Google Drive Button
             const linkBtn = document.getElementById('driveFolderLink');
             if (camData.imageUrl && camData.imageUrl.trim() !== "") {
                 linkBtn.href = camData.imageUrl;
@@ -293,7 +308,7 @@
             const labels = camData.readings.map(r => r.shutter_setting);
             const evDiff = camData.readings.map(r => r.curtain_diff_ev);
 
-            // Chart 1: Focal Plane vs Leaf Shutter rendering logic
+            // Chart 1 Logic
             if (chart1) chart1.destroy();
             
             if (isLeafShutter) {
@@ -351,7 +366,7 @@
                 });
             }
 
-            // Chart 2: EV Deviation
+            // Chart 2 Logic
             if (chart2) chart2.destroy();
             chart2 = new Chart(document.getElementById('evDiffChart'), {
                 type: 'line',
@@ -374,7 +389,7 @@
                 }
             });
 
-            // Table Header Construction
+            // Table Header Setup
             const thead = document.getElementById('tableHead');
             if (isLeafShutter) {
                 thead.innerHTML = `
@@ -404,9 +419,17 @@
                 `;
             }
 
-            // Table Body Populate
+            // Table Rows Setup
             const tbody = document.querySelector('#dataTable tbody');
             tbody.innerHTML = '';
+            
+            if (camData.readings.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="8" style="text-align: center; color: var(--text-sub);">No reading data found for this profile.</td>`;
+                tbody.appendChild(tr);
+                return;
+            }
+
             camData.readings.forEach(r => {
                 const tr = document.createElement('tr');
                 const absEv = Math.abs(r.curtain_diff_ev);
@@ -451,6 +474,11 @@
             let invalidSpeeds = [];
             let evTrend = "";
 
+            if (camData.readings.length === 0) {
+                container.innerHTML = `<h3>Health Diagnostics Summary</h3><p style="font-size: 0.85rem; color: var(--text-sub);">No shutter readings registered for this profile.</p>`;
+                return;
+            }
+
             camData.readings.forEach(r => {
                 const absEv = Math.abs(r.curtain_diff_ev);
                 if (absEv > 0.33) {
@@ -470,7 +498,7 @@
             html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
             
             if (isLeafShutter) {
-                html += `<li><strong>Efficiency Metrics:</strong> Evaluated actual effective opening times ($T_{\text{eff}}$) against targeted speed settings.</li>`;
+                html += `<li><strong>Efficiency Metrics:</strong> Evaluated actual effective opening times (T<sub>eff</sub>) against targeted speed settings.</li>`;
             }
             
             html += `<li><strong>Overall Trend:</strong> ${evTrend}</li>`;
