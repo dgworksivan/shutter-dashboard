@@ -129,7 +129,7 @@
         <h2>Detailed Diagnostics Table</h2>
         <table id="dataTable">
             <thead id="tableHead">
-                <!-- Dynamically assigned based on shutter mechanics -->
+                <!-- Dynamically assigned based on sheet index / shutter mechanics -->
             </thead>
             <tbody>
                 <!-- Populated via JS -->
@@ -138,7 +138,6 @@
     </div>
 
     <script>
-        // UPDATED SHEET CONFIGURATION NAMES & GIDs
         const SHEET_CONFIG = [
             { name: "My curtain shutter", gid: "0" },
             { name: "My Focal plane", gid: "1651253495" },
@@ -179,7 +178,7 @@
                     header: false,
                     skipEmptyLines: true,
                     complete: function(results) {
-                        globalData = parseShutterExcelStructure(results.data);
+                        globalData = parseShutterExcelStructure(results.data, index);
                         populateCameraDropdown();
                         updateDashboard();
                     }
@@ -198,7 +197,7 @@
             return parseFloat(str);
         }
 
-        function parseShutterExcelStructure(rows) {
+        function parseShutterExcelStructure(rows, sheetIndex) {
             let dataDict = {};
             let currentCamera = "Unknown Camera";
             let currentDirection = "STANDARD";
@@ -226,15 +225,25 @@
                         dataDict[currentCamera].imageUrl = currentImageUrl;
                     }
                 } else {
-                    let pos1 = parseFloat(row[0]);
+                    let colA = parseFloat(row[0]);
+                    let colH_setting = row[7] ? row[7].toString().trim() : ""; // Column H (Index 7)
+                    let colJ_setting = row[9] ? row[9].toString().trim() : ""; // Column J (Index 9)
+                    
+                    // For Sheet 2 (Leaf Shutter), setting is explicitly in Column H, fallback to Column J or Column A
+                    let setting = "";
+                    if (sheetIndex === 1) {
+                        setting = colH_setting || colJ_setting || val0;
+                    } else {
+                        setting = colJ_setting || val0;
+                    }
+
                     let c1 = parseFloat(row[6]);
                     let c2 = parseFloat(row[7]);
                     let evDiff = parseFloat(row[8]);
-                    let setting = row[9] ? row[9].toString().trim() : "";
                     let tEffVal = parseFloat(row[10]); 
 
-                    let hasSetting = setting !== "" || val0 !== "";
-                    let hasDataPoint = !isNaN(pos1) || !isNaN(tEffVal) || !isNaN(evDiff);
+                    let hasSetting = setting !== "";
+                    let hasDataPoint = !isNaN(colA) || !isNaN(tEffVal) || !isNaN(evDiff);
 
                     if (hasSetting && hasDataPoint) {
                         if (!dataDict[currentCamera]) {
@@ -242,10 +251,10 @@
                         }
 
                         dataDict[currentCamera].readings.push({
-                            shutter_setting: setting || val0,
-                            topen_ms: isNaN(pos1) ? 0 : pos1,
-                            twide_ms: parseFloat(row[1]) || 0,
-                            tclose_ms: parseFloat(row[2]) || 0,
+                            shutter_setting: setting,
+                            colA_ms: isNaN(colA) ? 0 : colA,
+                            colB_ms: parseFloat(row[1]) || 0,
+                            colC_ms: parseFloat(row[2]) || 0,
                             curtain1_ms: isNaN(c1) ? 0 : c1,
                             curtain2_ms: isNaN(c2) ? 0 : c2,
                             curtain_diff_ev: isNaN(evDiff) ? 0 : evDiff,
@@ -284,11 +293,10 @@
 
             const camData = globalData[selectedCam];
             
-            const dirUpper = camData.direction.toUpperCase();
-            const hasTEffData = camData.readings.some(r => r.t_eff !== null && r.t_eff > 0);
-            const isLeafShutter = dirUpper.includes("LEAF") || hasTEffData || !dirUpper.includes("CURTAIN");
+            // Sheet 0 is strictly Curtain Shutter; Sheet 1 is strictly Leaf Shutter
+            const isLeafShutter = (activeSheetIndex === 1);
 
-            document.getElementById('cameraDirectionBadge').textContent = camData.direction.toUpperCase();
+            document.getElementById('cameraDirectionBadge').textContent = isLeafShutter ? "LEAF SHUTTER" : camData.direction.toUpperCase();
             document.getElementById('cameraTitle').textContent = selectedCam;
 
             const linkBtn = document.getElementById('driveFolderLink');
@@ -393,7 +401,7 @@
             if (isLeafShutter) {
                 thead.innerHTML = `
                     <tr>
-                        <th>Setting</th>
+                        <th>Setting (Col H)</th>
                         <th>T_open (ms)</th>
                         <th>T_wide (ms)</th>
                         <th>T_close (ms)</th>
@@ -444,9 +452,9 @@
                     
                     tr.innerHTML = `
                         <td><strong>${r.shutter_setting}</strong></td>
-                        <td>${r.topen_ms}</td>
-                        <td>${r.twide_ms}</td>
-                        <td>${r.tclose_ms}</td>
+                        <td>${r.colA_ms}</td>
+                        <td>${r.colB_ms}</td>
+                        <td>${r.colC_ms}</td>
                         <td>${r.t_eff ? '1/' + r.t_eff : 'N/A'}</td>
                         <td>1/${targetDenom}</td>
                         <td>${r.curtain_diff_ev.toFixed(3)}</td>
@@ -455,9 +463,9 @@
                 } else {
                     tr.innerHTML = `
                         <td><strong>${r.shutter_setting}</strong></td>
-                        <td>${r.topen_ms}</td>
-                        <td>${r.twide_ms}</td>
-                        <td>${r.tclose_ms}</td>
+                        <td>${r.colA_ms}</td>
+                        <td>${r.colB_ms}</td>
+                        <td>${r.colC_ms}</td>
                         <td>${r.curtain1_ms}</td>
                         <td>${r.curtain2_ms}</td>
                         <td>${r.curtain_diff_ev.toFixed(3)}</td>
@@ -493,11 +501,13 @@
                 evTrend = "Severe systemic EV exposure deviation across multiple settings; requires recalibration.";
             }
 
-            let html = `<h3>Health Diagnostics Summary (${isLeafShutter ? 'MODE: LEAF SHUTTER' : 'Curtain Timing Analysis'})</h3><ul>`;
+            let html = `<h3>Health Diagnostics Summary (${isLeafShutter ? 'MODE: LEAF SHUTTER' : 'CURTAIN SHUTTER ANALYSIS'})</h3><ul>`;
             html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
             
             if (isLeafShutter) {
-                html += `<li><strong>Leaf Mechanics:</strong> $T_{\\text{eff}}$ measured from mid-opening to mid-closing compared directly to the target shutter setting.</li>`;
+                html += `<li><strong>Leaf Shutter Evaluation:</strong> Speeds pulled from Column H. $T_{\\text{eff}}$ measured from mid-opening to mid-closing compared directly against shutter settings.</li>`;
+            } else {
+                html += `<li><strong>Curtain Mechanics:</strong> Evaluated Curtain 1 vs Curtain 2 travel times and positional interval consistency.</li>`;
             }
             
             html += `<li><strong>Overall Trend:</strong> ${evTrend}</li>`;
