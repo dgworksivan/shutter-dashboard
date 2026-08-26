@@ -77,7 +77,7 @@
 <body>
 
     <div class="header">
-        <h1>📷 Live Shutter Analytics Dashboard</h1>
+        <h1>Shutter Analytics Dashboard</h1>
         <div id="cameraDirectionBadge" class="badge">Awaiting Data</div>
     </div>
 
@@ -302,7 +302,11 @@
         function populateCameraDropdown() {
             const select = document.getElementById('cameraSelect');
             select.innerHTML = '';
-            const cameras = Object.keys(globalData);
+            
+            // Sort cameras alphabetically (case-insensitive)
+            const cameras = Object.keys(globalData).sort((a, b) => 
+                a.localeCompare(b, undefined, { sensitivity: 'base' })
+            );
             
             if (cameras.length === 0) {
                 const opt = document.createElement('option');
