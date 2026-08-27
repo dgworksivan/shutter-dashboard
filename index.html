@@ -64,7 +64,7 @@
             width: 100%;
             height: auto;
             max-height: 172px;
-            object-fit: contain; /* Preserves un-cropped original photo aspect ratio */
+            object-fit: contain;
             border-radius: 4px;
         }
 
@@ -171,7 +171,7 @@
         </div>
 
         <div class="card">
-            <h2 id="chart2Title">Exposure Deviation <span>(Curtain EV DIFF)</span></h2>
+            <h2 id="chart2Title">Exposure Deviation <span id="evDiffSubhead">(EV Diff)</span></h2>
             <div class="chart-container">
                 <canvas id="evDiffChart"></canvas>
             </div>
@@ -455,9 +455,17 @@
             const activeRun = camObj.runs[runIndex] || { direction: "STANDARD", imageUrl: "", readings: [], description: "", thumbnail: "" };
 
             const isLeafShutter = (activeSheetIndex === 1);
+            
+            // Check if mode is explicitly curtain shutter or default non-leaf mode
+            const modeText = activeRun.direction ? activeRun.direction.toUpperCase() : "STANDARD";
+            const isCurtainMode = modeText.includes("CURTAIN") || (!isLeafShutter && modeText !== "LEAF");
+            const evLabel = isCurtainMode ? "Curtain EV Diff" : "EV Diff";
 
-            document.getElementById('cameraDirectionBadge').textContent = isLeafShutter ? "LEAF SHUTTER" : activeRun.direction.toUpperCase();
+            document.getElementById('cameraDirectionBadge').textContent = isLeafShutter ? "LEAF SHUTTER" : modeText;
             document.getElementById('cameraTitle').textContent = selectedKey + (activeRun.date ? ` (${activeRun.date})` : '');
+
+            // Update Chart 2 Header dynamically
+            document.getElementById('evDiffSubhead').textContent = `(${evLabel})`;
 
             // Thumbnail Rendering
             const thumbWrapper = document.getElementById('cameraThumbnailWrapper');
@@ -560,7 +568,7 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Curtain EV DIFF', data: evDiff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.2 },
+                        { label: evLabel, data: evDiff, borderColor: '#4ade80', backgroundColor: '#4ade80', tension: 0.2 },
                         { label: 'Upper Limit (+0.33 EV)', data: Array(labels.length).fill(0.33), borderColor: '#f87171', borderDash: [5, 5], pointRadius: 0 },
                         { label: 'Lower Limit (-0.33 EV)', data: Array(labels.length).fill(-0.33), borderColor: '#f87171', borderDash: [5, 5], pointRadius: 0 }
                     ]
@@ -571,7 +579,7 @@
                     plugins: { legend: { labels: { color: '#f8fafc' } } },
                     scales: {
                         x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'Curtain EV DIFF', color: '#94a3b8' } }
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: evLabel, color: '#94a3b8' } }
                     }
                 }
             });
@@ -587,7 +595,7 @@
                         <th>T_close (ms)</th>
                         <th>Actual T_eff</th>
                         <th>Target Speed</th>
-                        <th>Curtain EV DIFF</th>
+                        <th>${evLabel}</th>
                         <th>Status</th>
                     </tr>
                 `;
@@ -600,7 +608,7 @@
                         <th>Pos 3 (ms)</th>
                         <th>Curtain 1 (ms)</th>
                         <th>Curtain 2 (ms)</th>
-                        <th>Curtain EV DIFF</th>
+                        <th>${evLabel}</th>
                         <th>Status</th>
                     </tr>
                 `;
@@ -669,7 +677,7 @@
             activeRun.readings.forEach(r => {
                 const absEv = Math.abs(r.curtain_diff_ev);
                 if (absEv > 0.33) {
-                    invalidSpeeds.push(`${r.shutter_setting} (${r.curtain_diff_ev.toFixed(2)} Curtain EV DIFF)`);
+                    invalidSpeeds.push(`${r.shutter_setting} (${r.curtain_diff_ev.toFixed(2)} EV)`);
                 }
             });
 
@@ -678,14 +686,14 @@
             } else if (invalidSpeeds.length < 3) {
                 evTrend = "Minor exposure deviations at specific high speeds; general operation remains stable.";
             } else {
-                evTrend = "Severe systemic Curtain EV DIFF exposure deviation across multiple settings; requires recalibration.";
+                evTrend = "Severe systemic EV exposure deviation across multiple settings; requires recalibration.";
             }
 
             let html = `<h3>Health Diagnostics Summary (${isLeafShutter ? 'MODE: LEAF SHUTTER' : 'CURTAIN SHUTTER ANALYSIS'})</h3><ul>`;
-            html += `<li><strong>Inaccurate Speeds (> 0.33 Curtain EV DIFF):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
+            html += `<li><strong>Inaccurate Speeds (> 0.33 EV):</strong> ${invalidSpeeds.length > 0 ? invalidSpeeds.join(', ') : 'None (All settings within limits)'}</li>`;
             
             if (isLeafShutter) {
-                html += `<li><strong>Leaf Shutter Evaluation:</strong> Speeds pulled directly for leaf mechanics. Curtain EV DIFF calculated using logarithmic effective speed scaling.</li>`;
+                html += `<li><strong>Leaf Shutter Evaluation:</strong> Speeds pulled directly for leaf mechanics. EV deviation calculated using logarithmic effective speed scaling.</li>`;
             } else {
                 html += `<li><strong>Curtain Mechanics:</strong> Positional data mapped to timing points for curtain travel evaluation.</li>`;
             }
