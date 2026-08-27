@@ -45,7 +45,6 @@
             align-items: flex-start;
         }
 
-        /* Responsive container maintaining original image aspect ratio */
         .camera-thumbnail-wrapper {
             flex-shrink: 0;
             max-width: 220px;
@@ -256,6 +255,7 @@
             let currentThumbnail = "";
             let currentDirection = "STANDARD";
             let currentImageUrl = "";
+            let currentPosLabels = { p1: "Pos 1", p2: "Pos 2", p3: "Pos 3" };
             let currentBlockReadings = [];
 
             function pushCurrentBlock() {
@@ -281,6 +281,7 @@
                         description: currentDescription,
                         thumbnail: currentThumbnail,
                         direction: currentDirection,
+                        posLabels: currentPosLabels,
                         imageUrl: currentImageUrl,
                         readings: [...currentBlockReadings]
                     });
@@ -303,6 +304,7 @@
                     currentDescription = "";
                     currentThumbnail = "";
                     currentDirection = "STANDARD";
+                    currentPosLabels = { p1: "Pos 1", p2: "Pos 2", p3: "Pos 3" };
                     currentImageUrl = "";
                     continue;
                 } else if (val0Upper.startsWith("SERIAL NUMBER:")) {
@@ -323,6 +325,16 @@
                     continue;
                 } else if (val0Upper.startsWith("IMAGE_URL:")) {
                     currentImageUrl = val1 || "";
+                    continue;
+                }
+
+                // Check for dynamic header row mapping (e.g. TOP, MIDDLE, BOTTOM or LEFT, MIDDLE, RIGHT)
+                let rowStr = row.join(" ").toUpperCase();
+                if (rowStr.includes("TOP") && rowStr.includes("MIDDLE") && rowStr.includes("BOTTOM")) {
+                    currentPosLabels = { p1: "TOP", p2: "MIDDLE", p3: "BOTTOM" };
+                    continue;
+                } else if (rowStr.includes("LEFT") && rowStr.includes("MIDDLE") && rowStr.includes("RIGHT")) {
+                    currentPosLabels = { p1: "LEFT", p2: "MIDDLE", p3: "RIGHT" };
                     continue;
                 }
 
@@ -371,6 +383,13 @@
                 let hasDataPoint = !isNaN(pos1) || (tEffVal !== null && !isNaN(tEffVal)) || !isNaN(evDiff);
 
                 if (hasSetting && hasDataPoint) {
+                    // Compute Speed vs Middle EV Diff: log2((pos2 / 1000) / targetSec)
+                    let targetSec = parseShutterFraction(setting);
+                    let speedMidEvDiff = 0;
+                    if (pos2 > 0 && targetSec > 0) {
+                        speedMidEvDiff = Math.log2((pos2 / 1000) / targetSec);
+                    }
+
                     currentBlockReadings.push({
                         shutter_setting: setting,
                         pos1_ms: pos1,
@@ -379,6 +398,7 @@
                         curtain1_ms: isNaN(c1) ? 0 : c1,
                         curtain2_ms: isNaN(c2) ? 0 : c2,
                         curtain_diff_ev: isNaN(evDiff) ? 0 : evDiff,
+                        speed_mid_ev_diff: speedMidEvDiff,
                         t_eff: (tEffVal !== null && !isNaN(tEffVal)) ? tEffVal : null
                     });
                 }
@@ -452,11 +472,10 @@
             const camObj = globalData[selectedKey];
             const runSelect = document.getElementById('runSelect');
             const runIndex = (camObj.runs.length > 1 && runSelect.value) ? parseInt(runSelect.value) : 0;
-            const activeRun = camObj.runs[runIndex] || { direction: "STANDARD", imageUrl: "", readings: [], description: "", thumbnail: "" };
+            const activeRun = camObj.runs[runIndex] || { direction: "STANDARD", imageUrl: "", readings: [], description: "", thumbnail: "", posLabels: { p1: "Pos 1", p2: "Pos 2", p3: "Pos 3" } };
 
             const isLeafShutter = (activeSheetIndex === 1);
             
-            // Check if mode is explicitly curtain shutter or default non-leaf mode
             const modeText = activeRun.direction ? activeRun.direction.toUpperCase() : "STANDARD";
             const isCurtainMode = modeText.includes("CURTAIN") || (!isLeafShutter && modeText !== "LEAF");
             const evLabel = isCurtainMode ? "Curtain EV Diff" : "EV Diff";
@@ -464,10 +483,9 @@
             document.getElementById('cameraDirectionBadge').textContent = isLeafShutter ? "LEAF SHUTTER" : modeText;
             document.getElementById('cameraTitle').textContent = selectedKey + (activeRun.date ? ` (${activeRun.date})` : '');
 
-            // Update Chart 2 Header dynamically
             document.getElementById('evDiffSubhead').textContent = `(${evLabel})`;
 
-            // Thumbnail Rendering
+            // Thumbnail
             const thumbWrapper = document.getElementById('cameraThumbnailWrapper');
             const thumbImg = document.getElementById('cameraThumbnailImg');
 
@@ -478,7 +496,7 @@
                 thumbWrapper.style.display = 'none';
             }
 
-            // Description Display
+            // Description
             const descContainer = document.getElementById('cameraDescriptionContainer');
             if (activeRun.description && activeRun.description.trim() !== "") {
                 descContainer.innerHTML = `<strong>Description:</strong> ${activeRun.description}`;
@@ -503,7 +521,7 @@
             const labels = activeRun.readings.map(r => r.shutter_setting);
             const evDiff = activeRun.readings.map(r => r.curtain_diff_ev);
 
-            // Chart 1 Setup
+            // Chart 1
             if (chart1) chart1.destroy();
             
             if (isLeafShutter) {
@@ -561,7 +579,7 @@
                 });
             }
 
-            // Chart 2 Setup
+            // Chart 2
             if (chart2) chart2.destroy();
             chart2 = new Chart(document.getElementById('evDiffChart'), {
                 type: 'line',
@@ -584,8 +602,10 @@
                 }
             });
 
-            // Table Header Setup
+            // Dynamic Table Headers
             const thead = document.getElementById('tableHead');
+            const posLbls = activeRun.posLabels || { p1: "TOP", p2: "MIDDLE", p3: "BOTTOM" };
+
             if (isLeafShutter) {
                 thead.innerHTML = `
                     <tr>
@@ -595,6 +615,20 @@
                         <th>T_close (ms)</th>
                         <th>Actual T_eff</th>
                         <th>Target Speed</th>
+                        <th>${evLabel}</th>
+                        <th>Status</th>
+                    </tr>
+                `;
+            } else if (isCurtainMode) {
+                thead.innerHTML = `
+                    <tr>
+                        <th>Setting</th>
+                        <th>${posLbls.p1} (ms)</th>
+                        <th>${posLbls.p2} (ms)</th>
+                        <th>${posLbls.p3} (ms)</th>
+                        <th>Curtain 1 (ms)</th>
+                        <th>Curtain 2 (ms)</th>
+                        <th>EV Diff (Speed vs Mid)</th>
                         <th>${evLabel}</th>
                         <th>Status</th>
                     </tr>
@@ -614,13 +648,13 @@
                 `;
             }
 
-            // Table Rows Setup
+            // Table Body
             const tbody = document.querySelector('#dataTable tbody');
             tbody.innerHTML = '';
             
             if (activeRun.readings.length === 0) {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td colspan="8" style="text-align: center; color: var(--text-sub);">No reading data found for this run profile.</td>`;
+                tr.innerHTML = `<td colspan="9" style="text-align: center; color: var(--text-sub);">No reading data found for this run profile.</td>`;
                 tbody.appendChild(tr);
                 return;
             }
@@ -645,6 +679,18 @@
                         <td>${r.pos3_ms}</td>
                         <td>${r.t_eff ? '1/' + r.t_eff : 'N/A'}</td>
                         <td>1/${targetDenom}</td>
+                        <td>${r.curtain_diff_ev.toFixed(3)}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                    `;
+                } else if (isCurtainMode) {
+                    tr.innerHTML = `
+                        <td><strong>${r.shutter_setting}</strong></td>
+                        <td>${r.pos1_ms}</td>
+                        <td>${r.pos2_ms}</td>
+                        <td>${r.pos3_ms}</td>
+                        <td>${r.curtain1_ms}</td>
+                        <td>${r.curtain2_ms}</td>
+                        <td>${r.speed_mid_ev_diff.toFixed(3)}</td>
                         <td>${r.curtain_diff_ev.toFixed(3)}</td>
                         <td class="${statusClass}">${statusText}</td>
                     `;
