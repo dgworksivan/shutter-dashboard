@@ -38,6 +38,17 @@
         .camera-header-inline { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
         .camera-header-inline h2 { font-size: 1.4rem; color: var(--text-main); }
         
+        .camera-description {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: var(--bg-dark);
+            border-radius: 6px;
+            border-left: 3px solid var(--accent-blue);
+            line-height: 1.4;
+        }
+
         .drive-link-btn {
             display: inline-flex;
             align-items: center;
@@ -106,6 +117,7 @@
                 📁 View Camera Photos (Google Drive)
             </a>
         </div>
+        <div id="cameraDescriptionContainer" class="camera-description" style="display: none;"></div>
         <div id="summaryContainer" class="summary-box"></div>
     </div>
 
@@ -199,6 +211,7 @@
             let currentModel = "";
             let currentSerial = "";
             let currentDate = "";
+            let currentDescription = "";
             let currentDirection = "STANDARD";
             let currentImageUrl = "";
             let currentBlockReadings = [];
@@ -223,6 +236,7 @@
                     cameraMap[fullCameraKey].runs.push({
                         label: runLabel,
                         date: currentDate,
+                        description: currentDescription,
                         direction: currentDirection,
                         imageUrl: currentImageUrl,
                         readings: [...currentBlockReadings]
@@ -243,6 +257,7 @@
                     currentModel = val1 || "Unknown Camera";
                     currentSerial = "";
                     currentDate = "";
+                    currentDescription = "";
                     currentDirection = "STANDARD";
                     currentImageUrl = "";
                     continue;
@@ -252,6 +267,9 @@
                     continue;
                 } else if (val0Upper.startsWith("DATE:")) {
                     currentDate = val1;
+                    continue;
+                } else if (val0Upper.startsWith("DESCRIPTION:")) {
+                    currentDescription = val1 || row.slice(1).filter(Boolean).join(" ").trim();
                     continue;
                 } else if (val0Upper.startsWith("CURTAIN DIRECTION:") || val0Upper.startsWith("SHUTTER TYPE:") || val0Upper.startsWith("MODE:")) {
                     currentDirection = val1 || "STANDARD";
@@ -387,12 +405,21 @@
             const camObj = globalData[selectedKey];
             const runSelect = document.getElementById('runSelect');
             const runIndex = (camObj.runs.length > 1 && runSelect.value) ? parseInt(runSelect.value) : 0;
-            const activeRun = camObj.runs[runIndex] || { direction: "STANDARD", imageUrl: "", readings: [] };
+            const activeRun = camObj.runs[runIndex] || { direction: "STANDARD", imageUrl: "", readings: [], description: "" };
 
             const isLeafShutter = (activeSheetIndex === 1);
 
             document.getElementById('cameraDirectionBadge').textContent = isLeafShutter ? "LEAF SHUTTER" : activeRun.direction.toUpperCase();
             document.getElementById('cameraTitle').textContent = selectedKey + (activeRun.date ? ` (${activeRun.date})` : '');
+
+            // Description Display
+            const descContainer = document.getElementById('cameraDescriptionContainer');
+            if (activeRun.description && activeRun.description.trim() !== "") {
+                descContainer.innerHTML = `<strong>Description:</strong> ${activeRun.description}`;
+                descContainer.style.display = 'block';
+            } else {
+                descContainer.style.display = 'none';
+            }
 
             const linkBtn = document.getElementById('driveFolderLink');
             if (activeRun.imageUrl && activeRun.imageUrl.trim() !== "") {
