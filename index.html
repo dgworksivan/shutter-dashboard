@@ -246,7 +246,6 @@
             return parseFloat(cleaned);
         }
 
-        // Helper to convert fractions (e.g. 1/1000) or raw numbers into milliseconds
         function parseToMs(val) {
             if (val === undefined || val === null || val === "") return 0;
             let strVal = val.toString().trim();
@@ -256,7 +255,6 @@
             }
             let num = parseFloat(strVal);
             if (isNaN(num)) return 0;
-            // If the raw number is extremely small (< 0.1), treat as seconds and convert to ms
             if (num > 0 && num < 0.1) return num * 1000;
             return num;
         }
@@ -362,9 +360,9 @@
                 let evDiff = 0;
 
                 if (sheetIndex === 0) {
-                    setting = row[9] ? row[9].toString().trim() : val0; // Column J
+                    setting = row[9] ? row[9].toString().trim() : val0; 
                     pos1 = parseToMs(row[3]);
-                    pos2 = parseToMs(row[4]); // Middle (ms)
+                    pos2 = parseToMs(row[4]); // Middle position (ms)
                     pos3 = parseToMs(row[5]);
                     evDiff = parseFloat(row[8]);
                 } else if (sheetIndex === 1) {
@@ -397,7 +395,7 @@
                 let hasDataPoint = !isNaN(pos1) || (tEffVal !== null && !isNaN(tEffVal)) || !isNaN(evDiff);
 
                 if (hasSetting && hasDataPoint) {
-                    // EV DIFF (%) = ((Middle_ms / 1000) / ShutterSetting_s - 1) * 100
+                    // EV DIFF (%) = ((Middle_ms / 1000) / TargetSetting_seconds - 1) * 100
                     let targetSec = parseShutterFraction(setting);
                     let speedMidEvDiffPct = 0;
                     if (pos2 > 0 && targetSec > 0) {
